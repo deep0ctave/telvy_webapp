@@ -24,26 +24,32 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // Route Mounting
-console.log('Mounting user routes...');
+console.log('Mounting /api/auth...');
 app.use('/api/auth', authRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/users...');
 app.use('/api/users', userRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/questions...');
 app.use('/api/questions', questionRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/quizzes...');
 app.use('/api/quizzes', quizRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/attempts...');
 app.use('/api/attempts', attemptRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/admin...');
 app.use('/api/admin', adminRoutes);
-console.log('Mounting user routes...');
+
+console.log('Mounting /api/misc...');
 app.use('/api/misc', miscRoutes);
 
+
 // Fallback Route
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+app.use('*splat', (req, res) => {
+  res.status(404).json({ error: 'Route not found buddy' });
 });
-console.log('Mounting user routes...');
 
 // Start Server
 app.listen(PORT, () => {
