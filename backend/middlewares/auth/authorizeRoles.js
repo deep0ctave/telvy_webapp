@@ -1,4 +1,4 @@
-function authorizeRole(...allowedRoles) {
+function authorizeRoles(...allowedRoles) {
   return (req, res, next) => {
     const userRole = req.user?.role;
     if (!userRole || !allowedRoles.includes(userRole)) {
@@ -8,4 +8,4 @@ function authorizeRole(...allowedRoles) {
   };
 }
 
-module.exports = authorizeRole;
+module.exports = authorizeRoles;
