@@ -10,6 +10,7 @@ const userRoutes = require('./routes/userRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const attemptRoutes = require('./routes/attemptRoutes');
+const questionAttemptRoutes = require('./routes/questionAttemptRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const miscRoutes = require('./routes/miscRoutes');
 
@@ -46,6 +47,9 @@ app.use('/api/admin', adminRoutes);
 
 console.log('Mounting /api/misc...');
 app.use('/api/misc', miscRoutes);
+
+console.log('Mounting /api/question-attempts...');
+app.use('/api/question-attempts', questionAttemptRoutes);
 
 
 // Fallback Route
