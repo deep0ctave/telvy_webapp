@@ -1,5 +1,6 @@
 const pool = require('../db/client'); // adjust path as needed
 const bcrypt = require('bcrypt');
+const { generateToken } = require('../utils/jwt');
 
 // Generate random 6-digit OTP
 function generateOtp() {
@@ -122,8 +123,40 @@ exports.resendOtp = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  res.json({ message: 'Login route hit' });
+  const { username, password } = req.body;
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Incorrect password' });
+    }
+
+    const token = generateToken(user);
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.user_type,
+        name: user.name,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Something went wrong during login' });
+  }
 };
+
+
 
 exports.logout = async (req, res) => {
   res.json({ message: 'Logout route hit' });
