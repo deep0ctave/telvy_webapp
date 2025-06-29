@@ -109,18 +109,19 @@ async function main() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-
       CREATE TABLE IF NOT EXISTS question_attempts (
         id BIGSERIAL PRIMARY KEY,
-        user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-        quiz_id BIGINT REFERENCES quizzes(id) ON DELETE CASCADE,
+        quiz_attempt_id BIGINT REFERENCES quiz_attempts(id) ON DELETE CASCADE,
         question_id BIGINT REFERENCES questions(id) ON DELETE CASCADE,
         selected_option_id BIGINT REFERENCES options(id),
         typed_answer TEXT,
         is_correct BOOLEAN,
         time_taken INTERVAL,
-        attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (quiz_attempt_id, question_id)
       );
+
+
     `);
 
     console.log("✅ Tables created. Inserting dummy data...");
