@@ -13,6 +13,8 @@ const attemptRoutes = require('./routes/attemptRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const miscRoutes = require('./routes/miscRoutes');
 
+const errorHandler = require('./middlewares/errorHandler');
+
 dotenv.config(); // Load environment variables
 
 const app = express();
@@ -50,6 +52,9 @@ app.use('/api/misc', miscRoutes);
 app.use('*splat', (req, res) => {
   res.status(404).json({ error: 'Route not found buddy' });
 });
+
+// Global error handler
+app.use(errorHandler);
 
 // Start Server
 app.listen(PORT, () => {
