@@ -1,93 +1,100 @@
-const db = require('../db/client'); 
+const db = require('../db/client');
 
-// Get all questions
-exports.getAllQuestions = async (req, res) => {
+exports.getAllQuestions = async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM questions ORDER BY created_at DESC');
-    res.json({ questions: result.rows });
+    res.status(200).json({ questions: result.rows });
   } catch (err) {
-    console.error('Error fetching questions:', err);
-    res.status(500).json({ message: 'Server error' });
+    next(err);
   }
 };
 
-// Get a single question by ID
-exports.getQuestionById = async (req, res) => {
-  const { id } = req.params;
-
+exports.getQuestionById = async (req, res, next) => {
   try {
+    const { id } = req.params;
     const result = await db.query('SELECT * FROM questions WHERE id = $1', [id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Question not found' });
-    }
+    if (result.rowCount === 0) return res.status(404).json({ message: 'Question not found' });
 
-    res.json({ question: result.rows[0] });
+    res.status(200).json({ question: result.rows[0] });
   } catch (err) {
-    console.error('Error fetching question:', err);
-    res.status(500).json({ message: 'Server error' });
+    next(err);
   }
 };
 
-// Create a question
-exports.createQuestion = async (req, res) => {
-  const { question_text, question_type, tags } = req.body;
-  const owner_id = req.user.id;
-
+exports.createQuestion = async (req, res, next) => {
   try {
+    const { question_text, question_type, tags, question_image } = req.body;
+    const owner_id = req.user.id;
+
     const result = await db.query(
-      `INSERT INTO questions (question_text, question_type, tags, owner_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [question_text, question_type, tags, owner_id]
+      `INSERT INTO questions (question_text, question_type, tags, question_image, owner_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [question_text, question_type, tags, question_image, owner_id]
     );
 
     res.status(201).json({ message: 'Question created', question: result.rows[0] });
   } catch (err) {
-    console.error('Error creating question:', err);
-    res.status(500).json({ message: 'Server error' });
+    next(err);
   }
 };
 
-// Update a question
-exports.updateQuestion = async (req, res) => {
-  const { id } = req.params;
-  const { question_text, question_type, tags } = req.body;
-
+exports.updateQuestion = async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { question_text, question_type, tags, question_image } = req.body;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const existing = await db.query('SELECT * FROM questions WHERE id = $1', [id]);
+
+    if (existing.rowCount === 0)
+      return res.status(404).json({ message: 'Question not found' });
+
+    const question = existing.rows[0];
+
+    if (role === 'teacher' && question.owner_id !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Not your question' });
+    }
+
     const result = await db.query(
-      `UPDATE questions
-       SET question_text = $1, question_type = $2, tags = $3, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING *`,
-      [question_text, question_type, tags, id]
+      `UPDATE questions SET
+         question_text = $1,
+         question_type = $2,
+         tags = $3,
+         question_image = $4,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5 RETURNING *`,
+      [question_text, question_type, tags, question_image, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Question not found' });
-    }
-
-    res.json({ message: 'Question updated', question: result.rows[0] });
+    res.status(200).json({ message: 'Question updated', question: result.rows[0] });
   } catch (err) {
-    console.error('Error updating question:', err);
-    res.status(500).json({ message: 'Server error' });
+    next(err);
   }
 };
 
-// Delete a question
-exports.deleteQuestion = async (req, res) => {
-  const { id } = req.params;
-
+exports.deleteQuestion = async (req, res, next) => {
   try {
-    const result = await db.query('DELETE FROM questions WHERE id = $1 RETURNING *', [id]);
+    const { id } = req.params;
+    const userId = req.user.id;
+    const role = req.user.role;
 
-    if (result.rows.length === 0) {
+    const existing = await db.query('SELECT * FROM questions WHERE id = $1', [id]);
+
+    if (existing.rowCount === 0)
       return res.status(404).json({ message: 'Question not found' });
+
+    const question = existing.rows[0];
+
+    if (role === 'teacher' && question.owner_id !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Not your question' });
     }
 
-    res.json({ message: 'Question deleted successfully' });
+    await db.query('DELETE FROM questions WHERE id = $1', [id]);
+
+    res.status(200).json({ message: 'Question deleted' });
   } catch (err) {
-    console.error('Error deleting question:', err);
-    res.status(500).json({ message: 'Server error' });
+    next(err);
   }
 };
