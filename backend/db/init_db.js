@@ -97,16 +97,18 @@ async function main() {
       );
 
       CREATE TABLE IF NOT EXISTS quiz_attempts (
-        id BIGSERIAL PRIMARY KEY,
-        user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-        quiz_id BIGINT REFERENCES quizzes(id) ON DELETE CASCADE,
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
         started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         submitted_at TIMESTAMP,
-        score REAL,
-        is_completed BOOLEAN DEFAULT FALSE,
-        time_taken INTERVAL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        completed_at TIMESTAMP,
+        time_taken INTEGER,
+        score INTEGER DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'in_progress',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
 
       CREATE TABLE IF NOT EXISTS question_attempts (
         id BIGSERIAL PRIMARY KEY,
@@ -174,22 +176,6 @@ async function main() {
       (1, 1, 1),
       (1, 2, 2),
       (1, 3, 3)
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO quiz_attempts (user_id, quiz_id, started_at, submitted_at, score, is_completed, time_taken)
-      VALUES 
-      (1, 1, CURRENT_TIMESTAMP - INTERVAL '5 minutes', CURRENT_TIMESTAMP, 2.0, TRUE, INTERVAL '5 minutes')
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO question_attempts (user_id, quiz_id, question_id, selected_option_id, typed_answer, is_correct, time_taken)
-      VALUES
-      (1, 1, 1, 2, NULL, TRUE, INTERVAL '00:01:00'),
-      (1, 1, 2, 6, NULL, TRUE, INTERVAL '00:01:00'),
-      (1, 1, 3, NULL, 'Delhi', TRUE, INTERVAL '00:02:00')
       ON CONFLICT DO NOTHING;
     `);
 
