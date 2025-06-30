@@ -121,6 +121,24 @@ async function main() {
         UNIQUE (quiz_attempt_id, question_id)
       );
 
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+        refresh_token TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE
+      );
+
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+        token TEXT NOT NULL,
+        is_used BOOLEAN DEFAULT FALSE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
 
     `);
 

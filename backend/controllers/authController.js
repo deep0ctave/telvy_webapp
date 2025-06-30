@@ -1,6 +1,7 @@
 const pool = require('../db/client');
 const bcrypt = require('bcrypt');
-const { generateToken } = require('../utils/jwt');
+const { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } = require('../utils/jwt');
+
 
 // Generate 6-digit OTP
 function generateOtp() {
@@ -179,26 +180,57 @@ exports.resendOtp = async (req, res) => {
 
 
 exports.login = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, force = false } = req.body;
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    // 1. Get user
+    const result = await pool.query(`SELECT * FROM users WHERE username = $1`, [username]);
     const user = result.rows[0];
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
+    // 2. Verify password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Incorrect password' });
+    if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
+
+    // 3. Check existing sessions
+    const existingSessions = await pool.query(
+      `SELECT * FROM user_sessions WHERE user_id = $1 AND is_active = TRUE`,
+      [user.id]
+    );
+
+    if (existingSessions.rowCount > 0 && !force) {
+      return res.status(409).json({
+        message: 'User already logged in elsewhere. Use force=true to override.',
+      });
     }
 
-    const token = generateToken(user);
+    // 4. If forced, deactivate all previous sessions
+    if (force && existingSessions.rowCount > 0) {
+      await pool.query(
+        `UPDATE user_sessions SET is_active = FALSE WHERE user_id = $1`,
+        [user.id]
+      );
+    }
 
+    // 5. Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // 👉 6. Calculate refresh token expiry (e.g. 7 days from now)
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // 👉 7. Insert refresh token into user_sessions
+    await pool.query(
+      `INSERT INTO user_sessions (user_id, refresh_token, is_active, expires_at)
+       VALUES ($1, $2, TRUE, $3)`,
+      [user.id, refreshToken, expiresAt]
+    );
+
+    // 8. Send tokens to client
     res.json({
       message: 'Login successful',
-      token,
+      accessToken,
+      refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -207,10 +239,37 @@ exports.login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error('Login error:', err);
     res.status(500).json({ message: 'Something went wrong during login' });
   }
 };
+
+
+exports.logout = async (req, res) => {
+  const refreshToken = req.body.refreshToken;
+  const userId = req.user?.id;
+
+  if (!refreshToken || !userId) {
+    return res.status(400).json({ error: 'Missing refresh token or user info' });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM user_sessions WHERE user_id = $1 AND refresh_token = $2`,
+      [userId, refreshToken]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Session not found or already logged out' });
+    }
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
+};
+
 
 exports.forgotPasswordInitiate = async (req, res) => {
   const { phone } = req.body;
@@ -342,6 +401,39 @@ exports.forgotPasswordVerify = async (req, res) => {
   } catch (err) {
     console.error('Error in forgotPasswordVerify:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+exports.refreshToken = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token required' });
+  }
+
+  try {
+    // 1. Verify token signature
+    const decoded = verifyRefreshToken(refreshToken);
+
+    // 2. Check if refresh token is active in user_sessions
+    const result = await pool.query(
+      `SELECT * FROM user_sessions
+       WHERE user_id = $1 AND refresh_token = $2 AND is_active = TRUE`,
+      [decoded.id, refreshToken]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(401).json({ error: 'Session not found or token invalid' });
+    }
+
+    // 3. Generate new access token
+    const newAccessToken = generateAccessToken(decoded); // contains { id, username, role }
+
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    return res.status(401).json({ error: 'Invalid refresh token' });
   }
 };
 
