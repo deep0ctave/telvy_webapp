@@ -93,6 +93,29 @@ const profileUpdateValidation = [
   body('user_type').optional().isIn(['student', 'teacher', 'admin']),
 ];
 
+// 🔸 Questions
+
+const questionValidationRules = [
+  body('question_text').isString().notEmpty().withMessage('Question text is required'),
+  body('question_type')
+    .isIn(['mcq', 'true_false', 'type_in'])
+    .withMessage('Invalid question type'),
+  body('tags').optional().isArray().withMessage('Tags must be an array'),
+  body('question_image').optional().isURL().withMessage('Image must be a valid URL'),
+
+  // For MCQ questions
+  body('options').if(body('question_type').equals('mcq')).isArray({ min: 2 })
+    .withMessage('MCQ must have at least 2 options'),
+  body('options.*.text')
+    .if(body('question_type').equals('mcq'))
+    .notEmpty().withMessage('Each option must have text'),
+
+  // For type-in questions
+  body('accepted_answers')
+    .if(body('question_type').equals('type_in'))
+    .isArray({ min: 1 }).withMessage('Type-in must have at least one accepted answer'),
+];
+
 module.exports = {
   registerValidation,
   loginValidation,
@@ -101,4 +124,5 @@ module.exports = {
   forgotPasswordVerifyValidation,
   resendOtpValidation,
   profileUpdateValidation,
+  questionValidationRules,
 };

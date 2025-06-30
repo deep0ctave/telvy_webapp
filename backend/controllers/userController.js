@@ -32,39 +32,31 @@ exports.updateProfile = async (req, res) => {
   } = req.body;
 
   try {
-    const result = await db.query(`SELECT * FROM users WHERE id = $1`, [userId]);
+    const result = await pool.query(`SELECT * FROM users WHERE id = $1`, [userId]);
     const user = result.rows[0];
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // ✏️ Handle password change
+    // Password update flow
     if (new_password) {
-      if (!old_password) {
-        return res.status(400).json({ error: 'Old password is required to change password' });
-      }
-
       const match = await bcrypt.compare(old_password, user.password);
       if (!match) {
         return res.status(403).json({ error: 'Old password is incorrect' });
       }
-
       const hashed = await bcrypt.hash(new_password, 10);
       fieldsToUpdate.password = hashed;
     } else {
-      // 🛡️ If not changing password, validate current password
-      if (!current_password) {
-        return res.status(400).json({ error: 'Current password is required to update profile' });
-      }
-
+      // Profile update flow (require current password)
       const match = await bcrypt.compare(current_password, user.password);
       if (!match) {
         return res.status(403).json({ error: 'Current password is incorrect' });
       }
     }
 
-    // 🚫 Disallow username update
-    if ('username' in fieldsToUpdate) {
-      delete fieldsToUpdate.username;
+    // 🚫 Disallow dangerous fields
+    const disallowedFields = ['username', 'id', 'user_type', 'is_verified', 'status', 'created_at', 'updated_at'];
+    for (const key of disallowedFields) {
+      delete fieldsToUpdate[key];
     }
 
     const keys = Object.keys(fieldsToUpdate);
@@ -72,11 +64,10 @@ exports.updateProfile = async (req, res) => {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    // 🧱 Build dynamic query
     const updates = keys.map((field, idx) => `${field} = $${idx + 1}`).join(', ');
-    const values = keys.map((key) => fieldsToUpdate[key]);
+    const values = keys.map(key => fieldsToUpdate[key]);
 
-    await db.query(
+    await pool.query(
       `UPDATE users SET ${updates}, updated_at = NOW() WHERE id = $${keys.length + 1}`,
       [...values, userId]
     );
@@ -87,3 +78,4 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
