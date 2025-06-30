@@ -13,15 +13,7 @@ router.post(
   quizController.createQuiz
 );
 
-// Add one question to quiz
-router.post(
-  '/:quizId/questions/:questionId',
-  authenticateJWT,
-  authorizeRoles('teacher', 'admin'),
-  quizController.addQuestionToQuiz
-);
-
-// Add multiple questions to quiz
+// Add questions to quiz
 router.post(
   '/:quizId/questions',
   authenticateJWT,
@@ -29,15 +21,7 @@ router.post(
   quizController.addQuestionsToQuiz
 );
 
-// Remove one question from quiz
-router.delete(
-  '/:quizId/questions/:questionId',
-  authenticateJWT,
-  authorizeRoles('teacher', 'admin'),
-  quizController.removeQuestionFromQuiz
-);
-
-// Remove multiple questions from quiz
+// Remove questions from quiz
 router.delete(
   '/:quizId/questions',
   authenticateJWT,

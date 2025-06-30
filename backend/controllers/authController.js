@@ -1,4 +1,4 @@
-const pool = require('../db/client'); // adjust path as needed
+const pool = require('../db/client');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../utils/jwt');
 
@@ -57,10 +57,6 @@ exports.sendOtp = async (req, res) => {
   }
 };
 
-exports.register = async (req, res) => {
-  res.json({ message: 'Register route hit' });
-};
-
 exports.verifyOtp = async (req, res) => {
   const { phone, otp } = req.body;
 
@@ -117,11 +113,6 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
-
-exports.resendOtp = async (req, res) => {
-  res.json({ message: 'Resend OTP route hit' });
-};
-
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -154,14 +145,4 @@ exports.login = async (req, res) => {
     console.error(err);
     res.status(500).json({ message: 'Something went wrong during login' });
   }
-};
-
-
-
-exports.logout = async (req, res) => {
-  res.json({ message: 'Logout route hit' });
-};
-
-exports.getMe = async (req, res) => {
-  res.json({ message: 'Get current user route hit' });
 };

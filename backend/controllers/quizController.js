@@ -74,26 +74,6 @@ exports.updateQuiz = async (req, res) => {
   }
 };
 
-// Remove ONE question from quiz
-exports.removeQuestionFromQuiz = async (req, res, next) => {
-  try {
-    const { quizId, questionId } = req.params;
-
-    const result = await db.query(
-      'DELETE FROM quiz_questions WHERE quiz_id = $1 AND question_id = $2 RETURNING *',
-      [quizId, questionId]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'Question not found in quiz' });
-    }
-
-    res.json({ message: 'Question removed from quiz' });
-  } catch (err) {
-    next(err);
-  }
-};
-
 // Remove MULTIPLE questions from quiz
 exports.removeQuestionsFromQuiz = async (req, res, next) => {
   try {
@@ -116,32 +96,6 @@ exports.removeQuestionsFromQuiz = async (req, res, next) => {
       message: `${result.rowCount} question(s) removed from quiz`,
       removed: result.rows
     });
-  } catch (err) {
-    next(err);
-  }
-};
-
-
-// Add ONE question to quiz
-exports.addQuestionToQuiz = async (req, res, next) => {
-  try {
-    const { quizId, questionId } = req.params;
-
-    const exists = await db.query(
-      'SELECT 1 FROM quiz_questions WHERE quiz_id = $1 AND question_id = $2',
-      [quizId, questionId]
-    );
-    if (exists.rowCount > 0) {
-      return res.status(400).json({ message: 'Question already added to quiz' });
-    }
-
-    await db.query(
-      `INSERT INTO quiz_questions (quiz_id, question_id)
-       VALUES ($1, $2)`,
-      [quizId, questionId]
-    );
-
-    res.status(201).json({ message: 'Question added to quiz' });
   } catch (err) {
     next(err);
   }

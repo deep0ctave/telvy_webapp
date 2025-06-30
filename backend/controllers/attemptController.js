@@ -1,4 +1,4 @@
-const db = require('../client');
+const db = require('../db/client');
 
 exports.startAttempt = async (req, res) => {
   const userId = req.user.id;

@@ -32,7 +32,7 @@ async function main() {
         id BIGSERIAL PRIMARY KEY,
         phone TEXT NOT NULL,
         otp TEXT NOT NULL,
-        data JSONB,  -- ✅ store full user registration info here
+        data JSONB,
         is_used BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP NOT NULL

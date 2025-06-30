@@ -22,4 +22,3 @@ router.put('/:id', authenticateJWT, authorizeRoles('admin', 'teacher'), question
 router.delete('/:id', authenticateJWT, authorizeRoles('admin', 'teacher'), questionController.deleteQuestion);
 
 module.exports = router;
-module.exports = router;
