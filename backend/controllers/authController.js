@@ -2,12 +2,12 @@ const pool = require('../db/client');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../utils/jwt');
 
-// Generate random 6-digit OTP
+// Generate 6-digit OTP
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-exports.sendOtp = async (req, res) => {
+exports.registerInitiate = async (req, res) => {
   try {
     const {
       username, phone, email, password,
@@ -15,15 +15,35 @@ exports.sendOtp = async (req, res) => {
       section, user_type
     } = req.body;
 
-    // Check if user exists
+    // Check for existing user (phone/email/username)
     const userCheck = await pool.query(
-      `SELECT * FROM users WHERE phone = $1 OR email = $2 OR username = $3`,
+      `SELECT username, phone, email FROM users WHERE phone = $1 OR email = $2 OR username = $3`,
       [phone, email, username]
     );
 
     if (userCheck.rows.length > 0) {
-      return res.status(409).json({ error: 'User with phone/email/username already exists' });
+      const existing = userCheck.rows[0];
+
+      if (existing.phone === phone) {
+        return res.status(409).json({ error: 'Phone number already registered' });
+      }
+      if (existing.email === email) {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+      if (existing.username === username) {
+        return res.status(409).json({ error: 'Username already taken' });
+      }
+
+      return res.status(409).json({ error: 'User already exists' });
     }
+
+    // Expire previous OTPs for this phone
+    await pool.query(
+      `UPDATE otp_verifications
+       SET is_used = TRUE
+       WHERE phone = $1 AND is_used = FALSE`,
+      [phone]
+    );
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOtp();
@@ -48,16 +68,16 @@ exports.sendOtp = async (req, res) => {
       [phone, otp, userData]
     );
 
-    console.log(`📱 OTP for ${phone}: ${otp}`); // Simulate SMS sending
+    console.log(`📱 OTP for ${phone}: ${otp}`);
 
     res.status(200).json({ message: 'OTP sent to phone' });
   } catch (err) {
-    console.error('Error in sendOtp:', err);
+    console.error('Error in registerInitiate:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-exports.verifyOtp = async (req, res) => {
+exports.registerVerify = async (req, res) => {
   const { phone, otp } = req.body;
 
   try {
@@ -75,7 +95,6 @@ exports.verifyOtp = async (req, res) => {
     const record = result.rows[0];
     const userData = record.data;
 
-    // Create user
     const userInsert = await pool.query(
       `INSERT INTO users (
         username, phone, email, password, name, gender, dob,
@@ -108,10 +127,57 @@ exports.verifyOtp = async (req, res) => {
       user: userInsert.rows[0]
     });
   } catch (err) {
-    console.error('Error in verifyOtp:', err);
+    console.error('Error in registerVerify:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+exports.resendOtp = async (req, res) => {
+  const { phone } = req.body;
+
+  if (!phone || typeof phone !== 'string') {
+    return res.status(400).json({ error: 'Valid phone number required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM otp_verifications
+       WHERE phone = $1 AND is_used = FALSE AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'No pending registration found for this phone number' });
+    }
+
+    const oldOtpRecord = result.rows[0];
+
+    // Mark old OTP as used
+    await pool.query(
+      `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
+      [oldOtpRecord.id]
+    );
+
+    // Generate new OTP
+    const newOtp = generateOtp();
+
+    await pool.query(
+      `INSERT INTO otp_verifications (phone, otp, data, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [phone, newOtp, oldOtpRecord.data]
+    );
+
+    console.log(`🔁 Resent OTP for ${phone}: ${newOtp}`);
+
+    res.status(200).json({ message: 'OTP resent successfully' });
+  } catch (err) {
+    console.error('Error in resendOtp:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
