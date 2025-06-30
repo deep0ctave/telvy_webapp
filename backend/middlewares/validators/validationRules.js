@@ -1,0 +1,104 @@
+const { body } = require('express-validator');
+
+
+const dobValidator = body('dob')
+  .isDate().withMessage('Invalid date format')
+  .custom((value) => {
+    const dob = new Date(value);
+    const now = new Date();
+
+    if (dob > now) throw new Error('Date of birth cannot be in the future');
+
+    const age = now.getFullYear() - dob.getFullYear();
+    const isBeforeBirthday =
+      now.getMonth() < dob.getMonth() ||
+      (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+    const actualAge = isBeforeBirthday ? age - 1 : age;
+
+    if (actualAge > 100) throw new Error('Age cannot be more than 100 years');
+    if (actualAge < 5) throw new Error('Minimum age is 5');
+
+    return true;
+  });
+
+
+// 🔹 Reusable password rule
+const passwordField = (field = 'password') =>
+  body(field)
+    .isLength({ min: 8 }).withMessage(`${field} must be at least 8 characters`)
+    .matches(/[A-Z]/).withMessage(`${field} must contain an uppercase letter`)
+    .matches(/[a-z]/).withMessage(`${field} must contain a lowercase letter`)
+    .matches(/\d/).withMessage(`${field} must contain a number`)
+    .matches(/[@$!%*?&]/).withMessage(`${field} must contain a special character`);
+
+// 🔸 Register
+const registerValidation = [
+  body('username').isAlphanumeric().isLength({ min: 3, max: 30 }).trim(),
+  body('phone').isMobilePhone().withMessage('Invalid phone number').trim(),
+  body('email').isEmail().normalizeEmail(),
+  passwordField('password'),
+  body('name').notEmpty().trim(),
+  body('gender').isIn(['male', 'female', 'other']),
+  dobValidator,
+  body('school').notEmpty().trim(),
+  body('class').notEmpty().trim(),
+  body('section').notEmpty().trim(),
+  body('user_type').isIn(['student', 'teacher', 'admin']),
+];
+
+// 🔸 Login
+const loginValidation = [
+  body('username').notEmpty().trim(),
+  body('password').notEmpty()
+];
+
+// 🔸 OTP Verify (register)
+const verifyOtpValidation = [
+  body('phone').isMobilePhone(),
+  body('otp').isLength({ min: 6, max: 6 })
+];
+
+// 🔸 Forgot Password Initiate
+const forgotPasswordInitiateValidation = [
+  body('phone').isMobilePhone()
+];
+
+// 🔸 Forgot Password Verify
+const forgotPasswordVerifyValidation = [
+  body('phone').isMobilePhone(),
+  body('otp').isLength({ min: 6, max: 6 }),
+  passwordField('new_password')
+];
+
+// 🔸 Resend OTPs
+const resendOtpValidation = [
+  body('phone').isMobilePhone()
+];
+
+const profileUpdateValidation = [
+  body('username').not().exists().withMessage('Username cannot be changed'),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('phone').optional().isMobilePhone(),
+  passwordField('new_password').optional(),        // new password (if changing password)
+  body('old_password').if(body('new_password').exists()).notEmpty().withMessage('Old password required'),
+  body('current_password')
+    .if(body('new_password').not().exists())       // required when not changing password
+    .notEmpty().withMessage('Current password required for profile update'),
+  body('name').optional().trim().notEmpty(),
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('dob').optional().isISO8601(),
+  body('school').optional().notEmpty(),
+  body('class').optional().notEmpty(),
+  body('section').optional().notEmpty(),
+  body('user_type').optional().isIn(['student', 'teacher', 'admin']),
+];
+
+module.exports = {
+  registerValidation,
+  loginValidation,
+  verifyOtpValidation,
+  forgotPasswordInitiateValidation,
+  forgotPasswordVerifyValidation,
+  resendOtpValidation,
+  profileUpdateValidation,
+};

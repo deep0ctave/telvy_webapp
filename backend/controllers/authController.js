@@ -178,7 +178,6 @@ exports.resendOtp = async (req, res) => {
 };
 
 
-
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -212,3 +211,137 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Something went wrong during login' });
   }
 };
+
+exports.forgotPasswordInitiate = async (req, res) => {
+  const { phone } = req.body;
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id FROM users WHERE phone = $1`,
+      [phone]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No user found with this phone number' });
+    }
+
+    // Expire old OTPs for password reset
+    await pool.query(
+      `UPDATE otp_verifications SET is_used = TRUE
+       WHERE phone = $1 AND is_used = FALSE AND data->>'context' = 'forgot_password'`,
+      [phone]
+    );
+
+    const otp = generateOtp();
+    const userId = result.rows[0].id;
+
+    const data = {
+      user_id: userId,
+      context: 'forgot_password'
+    };
+
+    await pool.query(
+      `INSERT INTO otp_verifications (phone, otp, data, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [phone, otp, data]
+    );
+
+    console.log(`🔐 Forgot password OTP for ${phone}: ${otp}`);
+    res.json({ message: 'OTP sent to phone' });
+  } catch (err) {
+    console.error('Error in forgotPasswordInitiate:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.forgotPasswordResend = async (req, res) => {
+  const { phone } = req.body;
+
+  if (!phone || typeof phone !== 'string') {
+    return res.status(400).json({ error: 'Valid phone number required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM otp_verifications
+       WHERE phone = $1 AND is_used = FALSE AND expires_at > NOW()
+       AND data->>'context' = 'forgot_password'
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'No active password reset request found for this phone number' });
+    }
+
+    const oldRecord = result.rows[0];
+
+    // Mark old OTP as used
+    await pool.query(
+      `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
+      [oldRecord.id]
+    );
+
+    const newOtp = generateOtp();
+
+    await pool.query(
+      `INSERT INTO otp_verifications (phone, otp, data, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [phone, newOtp, oldRecord.data]
+    );
+
+    console.log(`🔁 Resent forgot password OTP for ${phone}: ${newOtp}`);
+
+    res.json({ message: 'OTP resent successfully' });
+  } catch (err) {
+    console.error('Error in forgotPasswordResend:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+exports.forgotPasswordVerify = async (req, res) => {
+  const { phone, otp, new_password } = req.body;
+
+  if (!phone || !otp || !new_password) {
+    return res.status(400).json({ error: 'Phone, OTP, and new password are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM otp_verifications
+       WHERE phone = $1 AND otp = $2 AND is_used = FALSE
+       AND expires_at > NOW() AND data->>'context' = 'forgot_password'
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone, otp]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    const record = result.rows[0];
+    const userId = record.data.user_id;
+    const hashed = await bcrypt.hash(new_password, 10);
+
+    await pool.query(
+      `UPDATE users SET password = $1 WHERE id = $2`,
+      [hashed, userId]
+    );
+
+    await pool.query(
+      `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
+      [record.id]
+    );
+
+    res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('Error in forgotPasswordVerify:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
