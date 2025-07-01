@@ -415,7 +415,7 @@ exports.refreshToken = async (req, res) => {
   try {
     // 1. Verify token signature
     const decoded = verifyRefreshToken(refreshToken);
-
+    
     // 2. Check if refresh token is active in user_sessions
     const result = await pool.query(
       `SELECT * FROM user_sessions
@@ -429,7 +429,6 @@ exports.refreshToken = async (req, res) => {
 
     // 3. Generate new access token
     const newAccessToken = generateAccessToken(decoded); // contains { id, username, role }
-
     res.json({ accessToken: newAccessToken });
   } catch (err) {
     console.error('Refresh token error:', err);

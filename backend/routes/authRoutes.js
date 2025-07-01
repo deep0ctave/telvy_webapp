@@ -23,6 +23,6 @@ router.post('/forgot-password/verify', validators.forgotPasswordVerifyValidation
 router.post('/forgot-password/resend', validators.resendOtpValidation, validate, authController.forgotPasswordResend);
 
 // 🔹 Request new Refresh Token
-router.post('/refresh', authController.refreshToken);
+router.post('/refresh',authController.refreshToken);
 
 module.exports = router;
