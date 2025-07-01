@@ -34,7 +34,7 @@ exports.updateProfile = async (req, res) => {
   } = req.body;
 
   try {
-    // Fetch user
+    // 🔍 Fetch user
     const result = await db.query(`SELECT * FROM users WHERE id = $1`, [userId]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -60,7 +60,16 @@ exports.updateProfile = async (req, res) => {
         return res.status(403).json({ error: 'Old password is incorrect' });
       }
 
-      await sendOtp(user.phone, 'password_change');
+      const hashed = await bcrypt.hash(new_password, 10);
+      const otp = await sendOtp(user.phone, 'password_change');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await db.query(
+        `INSERT INTO otp_verifications (phone, otp, data, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [user.phone, otp, { context: 'password_change', user_id: user.id, new_password: hashed }, expiresAt]
+      );
+
       return res.status(202).json({
         message: 'OTP sent to registered phone. Verify OTP to change password.',
       });
@@ -73,13 +82,21 @@ exports.updateProfile = async (req, res) => {
         return res.status(409).json({ error: 'Phone number already in use' });
       }
 
-      await sendOtp(phone, 'phone_change');
+      const otp = await sendOtp(phone, 'phone_change');
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await db.query(
+        `INSERT INTO otp_verifications (phone, otp, data, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [phone, otp, { context: 'phone_change', user_id: user.id }, expiresAt]
+      );
+
       return res.status(202).json({
         message: 'OTP sent to new phone. Verify OTP to update phone number.',
       });
     }
 
-    // 🔁 Normal profile update
+    // ✅ Normal profile field updates
     const keys = Object.keys(fieldsToUpdate);
     if (keys.length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
@@ -110,9 +127,11 @@ exports.verifyPhoneChange = async (req, res) => {
   }
 
   try {
+    // Check OTP validity and purpose
     const otpResult = await db.query(
       `SELECT * FROM otp_verifications
-       WHERE phone = $1 AND otp = $2 AND is_used = FALSE AND expires_at > NOW()
+       WHERE phone = $1 AND otp = $2
+       AND is_used = FALSE AND expires_at > NOW()
        AND data->>'purpose' = 'phone_change'
        ORDER BY created_at DESC LIMIT 1`,
       [phone, otp]
@@ -122,13 +141,23 @@ exports.verifyPhoneChange = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    // Update phone number
+    // Optional: re-check phone is not already taken
+    const phoneExists = await db.query(`SELECT id FROM users WHERE phone = $1 AND id != $2`, [phone, userId]);
+    if (phoneExists.rowCount > 0) {
+      return res.status(409).json({ error: 'Phone number already in use by another account' });
+    }
+
+    // Update phone
     await db.query(
       `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`,
       [phone, userId]
     );
 
-    await db.query(`UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`, [otpResult.rows[0].id]);
+    // Mark OTP as used
+    await db.query(
+      `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
+      [otpResult.rows[0].id]
+    );
 
     res.json({ message: 'Phone number updated successfully' });
   } catch (err) {
@@ -138,22 +167,25 @@ exports.verifyPhoneChange = async (req, res) => {
 };
 
 
+
 exports.verifyPasswordChange = async (req, res) => {
   const userId = req.user.id;
   const { otp, new_password } = req.body;
+  console.log(otp)
+  console.log(new_password)
 
   if (!otp || !new_password) {
     return res.status(400).json({ error: 'OTP and new password are required' });
   }
 
   try {
+    // Check OTP validity for password change
     const otpResult = await db.query(
       `SELECT * FROM otp_verifications
        WHERE phone = (SELECT phone FROM users WHERE id = $1)
-         AND otp = $2
-         AND is_used = FALSE
-         AND expires_at > NOW()
-         AND data->>'purpose' = 'password_change'
+       AND otp = $2
+       AND is_used = FALSE AND expires_at > NOW()
+       AND data->>'purpose' = 'password_change'
        ORDER BY created_at DESC LIMIT 1`,
       [userId, otp]
     );
@@ -162,13 +194,18 @@ exports.verifyPasswordChange = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    const hashedPassword = await bcrypt.hash(new_password, 10);
+    // Update password
+    const hashed = await bcrypt.hash(new_password, 10);
     await db.query(
       `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
-      [hashedPassword, userId]
+      [hashed, userId]
     );
 
-    await db.query(`UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`, [otpResult.rows[0].id]);
+    // Mark OTP as used
+    await db.query(
+      `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
+      [otpResult.rows[0].id]
+    );
 
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
@@ -176,4 +213,5 @@ exports.verifyPasswordChange = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
 
