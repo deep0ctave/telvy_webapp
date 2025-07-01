@@ -1,12 +1,7 @@
 const pool = require('../db/client');
 const bcrypt = require('bcrypt');
 const { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } = require('../utils/jwt');
-
-
-// Generate 6-digit OTP
-function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
+const { sendOtp } = require('../utils/otpUtil');
 
 exports.registerInitiate = async (req, res) => {
   try {
@@ -47,7 +42,7 @@ exports.registerInitiate = async (req, res) => {
     );
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = generateOtp();
+    const otp = await sendOtp(phone, 'registration');
 
     const userData = {
       username,
@@ -116,7 +111,7 @@ exports.registerVerify = async (req, res) => {
         userData.section,
         userData.user_type
       ]
-    );
+    ); 
 
     await pool.query(
       `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
@@ -132,6 +127,7 @@ exports.registerVerify = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 exports.resendOtp = async (req, res) => {
   const { phone } = req.body;
@@ -154,29 +150,33 @@ exports.resendOtp = async (req, res) => {
 
     const oldOtpRecord = result.rows[0];
 
-    // Mark old OTP as used
+    // ✅ Mark old OTP as used
     await pool.query(
       `UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`,
       [oldOtpRecord.id]
     );
 
-    // Generate new OTP
-    const newOtp = generateOtp();
+    // ✅ Generate new OTP
+    const newOtp = await sendOtp(phone, 'resend');
 
+    // ✅ Set expiry timestamp
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // ✅ Insert new OTP into DB
     await pool.query(
       `INSERT INTO otp_verifications (phone, otp, data, expires_at)
-       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
-      [phone, newOtp, oldOtpRecord.data]
+       VALUES ($1, $2, $3, $4)`,
+      [phone, newOtp, oldOtpRecord.data, expiresAt]
     );
 
-    console.log(`🔁 Resent OTP for ${phone}: ${newOtp}`);
-
+    // 🧾 Already logged by sendOtp()
     res.status(200).json({ message: 'OTP resent successfully' });
   } catch (err) {
     console.error('Error in resendOtp:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 
 exports.login = async (req, res) => {
@@ -415,7 +415,7 @@ exports.refreshToken = async (req, res) => {
   try {
     // 1. Verify token signature
     const decoded = verifyRefreshToken(refreshToken);
-    
+
     // 2. Check if refresh token is active in user_sessions
     const result = await pool.query(
       `SELECT * FROM user_sessions

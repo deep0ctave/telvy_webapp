@@ -1,5 +1,6 @@
 const db = require('../db/client');
 const bcrypt = require('bcrypt');
+const { sendOtp } = require('../utils/otpUtil'); // you must implement this
 
 exports.getProfile = async (req, res) => {
   const userId = req.user.id;
@@ -25,49 +26,69 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   const userId = req.user.id;
   const {
+    current_password,
     old_password,
     new_password,
-    current_password,
+    phone,
     ...fieldsToUpdate
   } = req.body;
 
   try {
-    const result = await pool.query(`SELECT * FROM users WHERE id = $1`, [userId]);
+    // Fetch user
+    const result = await db.query(`SELECT * FROM users WHERE id = $1`, [userId]);
     const user = result.rows[0];
-
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Password update flow
-    if (new_password) {
-      const match = await bcrypt.compare(old_password, user.password);
-      if (!match) {
+    // 🚫 Block disallowed fields
+    const disallowed = ['username', 'user_type', 'id', 'created_at', 'updated_at', 'is_verified'];
+    for (const key of disallowed) {
+      if (req.body.hasOwnProperty(key)) {
+        return res.status(400).json({ error: `${key} cannot be updated` });
+      }
+    }
+
+    // 🔐 Require current password
+    const validPassword = await bcrypt.compare(current_password || '', user.password);
+    if (!validPassword) {
+      return res.status(403).json({ error: 'Current password is incorrect' });
+    }
+
+    // ✅ Password change flow
+    if (new_password && old_password) {
+      const oldMatch = await bcrypt.compare(old_password, user.password);
+      if (!oldMatch) {
         return res.status(403).json({ error: 'Old password is incorrect' });
       }
-      const hashed = await bcrypt.hash(new_password, 10);
-      fieldsToUpdate.password = hashed;
-    } else {
-      // Profile update flow (require current password)
-      const match = await bcrypt.compare(current_password, user.password);
-      if (!match) {
-        return res.status(403).json({ error: 'Current password is incorrect' });
+
+      await sendOtp(user.phone, 'password_change');
+      return res.status(202).json({
+        message: 'OTP sent to registered phone. Verify OTP to change password.',
+      });
+    }
+
+    // 📞 Phone number change flow
+    if (phone && phone !== user.phone) {
+      const phoneTaken = await db.query(`SELECT id FROM users WHERE phone = $1`, [phone]);
+      if (phoneTaken.rowCount > 0) {
+        return res.status(409).json({ error: 'Phone number already in use' });
       }
+
+      await sendOtp(phone, 'phone_change');
+      return res.status(202).json({
+        message: 'OTP sent to new phone. Verify OTP to update phone number.',
+      });
     }
 
-    // 🚫 Disallow dangerous fields
-    const disallowedFields = ['username', 'id', 'user_type', 'is_verified', 'status', 'created_at', 'updated_at'];
-    for (const key of disallowedFields) {
-      delete fieldsToUpdate[key];
-    }
-
+    // 🔁 Normal profile update
     const keys = Object.keys(fieldsToUpdate);
     if (keys.length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
     const updates = keys.map((field, idx) => `${field} = $${idx + 1}`).join(', ');
-    const values = keys.map(key => fieldsToUpdate[key]);
+    const values = keys.map(k => fieldsToUpdate[k]);
 
-    await pool.query(
+    await db.query(
       `UPDATE users SET ${updates}, updated_at = NOW() WHERE id = $${keys.length + 1}`,
       [...values, userId]
     );
@@ -75,6 +96,83 @@ exports.updateProfile = async (req, res) => {
     res.json({ message: 'Profile updated successfully' });
   } catch (err) {
     console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+exports.verifyPhoneChange = async (req, res) => {
+  const userId = req.user.id;
+  const { phone, otp } = req.body;
+
+  if (!phone || !otp) {
+    return res.status(400).json({ error: 'Phone and OTP are required' });
+  }
+
+  try {
+    const otpResult = await db.query(
+      `SELECT * FROM otp_verifications
+       WHERE phone = $1 AND otp = $2 AND is_used = FALSE AND expires_at > NOW()
+       AND data->>'purpose' = 'phone_change'
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone, otp]
+    );
+
+    if (otpResult.rowCount === 0) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // Update phone number
+    await db.query(
+      `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`,
+      [phone, userId]
+    );
+
+    await db.query(`UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`, [otpResult.rows[0].id]);
+
+    res.json({ message: 'Phone number updated successfully' });
+  } catch (err) {
+    console.error('verifyPhoneChange error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+exports.verifyPasswordChange = async (req, res) => {
+  const userId = req.user.id;
+  const { otp, new_password } = req.body;
+
+  if (!otp || !new_password) {
+    return res.status(400).json({ error: 'OTP and new password are required' });
+  }
+
+  try {
+    const otpResult = await db.query(
+      `SELECT * FROM otp_verifications
+       WHERE phone = (SELECT phone FROM users WHERE id = $1)
+         AND otp = $2
+         AND is_used = FALSE
+         AND expires_at > NOW()
+         AND data->>'purpose' = 'password_change'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, otp]
+    );
+
+    if (otpResult.rowCount === 0) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await db.query(
+      `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
+      [hashedPassword, userId]
+    );
+
+    await db.query(`UPDATE otp_verifications SET is_used = TRUE WHERE id = $1`, [otpResult.rows[0].id]);
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('verifyPasswordChange error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };

@@ -2,53 +2,23 @@ const db = require('../db/client'); // using pg.Pool
 const format = require('pg-format');
 
 // Create a quiz
-exports.startAttempt = async (req, res) => {
-  const userId = req.user.id;
-  const { quizId } = req.body;
+exports.createQuiz = async (req, res) => {
+  const { title, description, image_url, time_limit, quiz_type, tags } = req.body;
+  const ownerId = req.user.id;
 
   try {
-    const quiz = await db.query(`SELECT time_limit FROM quizzes WHERE id = $1`, [quizId]);
-    if (quiz.rowCount === 0) {
-      return res.status(404).json({ message: 'Quiz not found' });
-    }
-
-    const existing = await db.query(
-      `SELECT * FROM quiz_attempts 
-       WHERE user_id = $1 AND quiz_id = $2 AND is_completed = false`,
-      [userId, quizId]
-    );
-
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ message: 'Attempt already in progress' });
-    }
-
     const result = await db.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id) 
-       VALUES ($1, $2) RETURNING *`,
-      [userId, quizId]
+      `INSERT INTO quizzes (title, description, image_url, time_limit, quiz_type, tags, owner_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [title, description, image_url, time_limit, quiz_type, tags, ownerId]
     );
 
-    const questions = await db.query(
-      `SELECT q.*, qq.question_order
-       FROM quiz_questions qq
-       JOIN questions q ON q.id = qq.question_id
-       WHERE qq.quiz_id = $1
-       ORDER BY qq.question_order ASC`,
-      [quizId]
-    );
-
-    res.status(201).json({
-      message: 'Quiz attempt started',
-      attempt: result.rows[0],
-      questions: questions.rows,
-      timeLimit: quiz.rows[0].time_limit
-    });
+    res.status(201).json({ message: 'Quiz created', quiz: result.rows[0] });
   } catch (err) {
-    console.error('Error starting attempt:', err);
+    console.error('Create quiz error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
-
 
 // Get all quizzes
 exports.getAllQuizzes = async (req, res) => {

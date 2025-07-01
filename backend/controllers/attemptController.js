@@ -1,164 +1,182 @@
-const db = require('../db/client');
+const pool = require('../db/client');
 
-exports.startAttempt = async (req, res) => {
-  const userId = req.user.id;
-  const { quizId } = req.body;
+// ------------------ Quiz Attempts ------------------
+
+exports.startQuizAttempt = async (req, res) => {
+  const { quiz_id } = req.body;
+  const user_id = req.user.id;
 
   try {
-    // Prevent multiple active attempts for same quiz
-    const existing = await db.query(
-      `SELECT * FROM quiz_attempts 
-       WHERE user_id = $1 AND quiz_id = $2 AND is_completed = false`,
-      [userId, quizId]
+    const result = await pool.query(
+      `INSERT INTO quiz_attempts (quiz_id, user_id)
+       VALUES ($1, $2)
+       RETURNING *;`,
+      [quiz_id, user_id]
     );
-
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ message: 'Attempt already in progress' });
-    }
-
-    const result = await db.query(
-      `INSERT INTO quiz_attempts (user_id, quiz_id) 
-       VALUES ($1, $2) RETURNING *`,
-      [userId, quizId]
-    );
-
-    res.status(201).json({
-      message: 'Quiz attempt started',
-      attempt: result.rows[0],
-    });
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Error starting attempt:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error starting quiz attempt:', err);
+    res.status(500).json({ error: 'Failed to start quiz attempt' });
   }
 };
 
-exports.submitAttempt = async (req, res) => {
-  const userId = req.user.id;
-  const { attemptId, answers } = req.body;
+exports.submitQuizAttempt = async (req, res) => {
+  const { attempt_id, time_taken, score = 0, is_completed = true } = req.body;
 
   try {
-    // Verify attempt
-    const attempt = await db.query(
-      `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
-      [attemptId, userId]
+    const result = await pool.query(
+      `UPDATE quiz_attempts
+       SET submitted_at = NOW(),
+           completed_at = NOW(),
+           time_taken = $1,
+           score = $2,
+           status = $3,
+           is_completed = $4,
+           updated_at = NOW()
+       WHERE id = $5
+       RETURNING *;`,
+      [
+        time_taken || null,
+        score,
+        is_completed ? 'completed' : 'in_progress',
+        is_completed,
+        attempt_id
+      ]
     );
-
-    if (attempt.rows.length === 0) {
-      return res.status(404).json({ message: 'Attempt not found' });
-    }
-
-    if (attempt.rows[0].is_completed) {
-      return res.status(400).json({ message: 'Quiz already submitted' });
-    }
-
-    let correct = 0;
-
-    for (const ans of answers) {
-      const { questionId, selectedOptionId, typedAnswer } = ans;
-
-      let isCorrect = false;
-
-      if (selectedOptionId) {
-        const option = await db.query(
-          `SELECT is_correct FROM options WHERE id = $1 AND question_id = $2`,
-          [selectedOptionId, questionId]
-        );
-        isCorrect = option.rows[0]?.is_correct || false;
-      }
-
-      if (typedAnswer) {
-        const accepted = await db.query(
-          `SELECT * FROM accepted_answers 
-           WHERE question_id = $1 AND LOWER(acceptable_answer) = LOWER($2)`,
-          [questionId, typedAnswer]
-        );
-        isCorrect = accepted.rows.length > 0;
-      }
-
-      if (isCorrect) correct++;
-
-      await db.query(
-        `INSERT INTO question_attempts 
-         (user_id, quiz_id, question_id, selected_option_id, typed_answer, is_correct) 
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [userId, attempt.rows[0].quiz_id, questionId, selectedOptionId || null, typedAnswer || null, isCorrect]
-      );
-    }
-
-    await db.query(
-      `UPDATE quiz_attempts 
-       SET is_completed = true, submitted_at = CURRENT_TIMESTAMP, score = $1 
-       WHERE id = $2`,
-      [correct, attemptId]
-    );
-
-    res.status(200).json({
-      message: 'Quiz submitted successfully',
-      score: correct,
-    });
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error submitting attempt:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error submitting quiz attempt:', err);
+    res.status(500).json({ error: 'Failed to submit quiz attempt' });
   }
 };
-
-// controllers/attemptController.js
 
 exports.getAttemptById = async (req, res) => {
-  const userId = req.user.id;
-  const attemptId = req.params.id;
+  const attempt_id = req.params.id;
 
   try {
-    const attemptRes = await db.query(
-      `SELECT * FROM quiz_attempts WHERE id = $1 AND user_id = $2`,
-      [attemptId, userId]
+    const result = await pool.query(
+      `SELECT * FROM quiz_attempts WHERE id = $1;`,
+      [attempt_id]
     );
-
-    if (attemptRes.rows.length === 0) {
-      return res.status(404).json({ message: 'Attempt not found' });
-    }
-
-    const questionsRes = await db.query(
-      `SELECT question_id, selected_option_id, typed_answer, is_correct 
-       FROM question_attempts 
-       WHERE quiz_id = $1 AND user_id = $2`,
-      [attemptRes.rows[0].quiz_id, userId]
-    );
-
-    res.status(200).json({
-      attempt: attemptRes.rows[0],
-      questions: questionsRes.rows,
-    });
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error fetching attempt:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error fetching quiz attempt:', err);
+    res.status(500).json({ error: 'Failed to get attempt' });
   }
 };
-
-// controllers/attemptController.js
 
 exports.getAttemptsByUser = async (req, res) => {
-  const requestUserId = req.user.id;
-  const requestUserRole = req.user.role;
-  const { userId } = req.params;
-
-  const isSelf = parseInt(userId) === requestUserId;
-  const isPrivileged = requestUserRole === 'admin' || requestUserRole === 'teacher';
-
-  if (!isSelf && !isPrivileged) {
-    return res.status(403).json({ message: 'Forbidden: Not authorized to view these attempts' });
-  }
+  const user_id = req.params.userId;
 
   try {
-    const result = await db.query(
-      `SELECT * FROM quiz_attempts WHERE user_id = $1 ORDER BY submitted_at DESC`,
-      [userId]
+    const result = await pool.query(
+      `SELECT * FROM quiz_attempts WHERE user_id = $1 ORDER BY started_at DESC;`,
+      [user_id]
     );
-
-    res.status(200).json({ attempts: result.rows });
+    res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching attempts:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error fetching user attempts:', err);
+    res.status(500).json({ error: 'Failed to get user attempts' });
   }
 };
 
+// ------------------ Question Attempts ------------------
+
+exports.submitQuestionAttempt = async (req, res) => {
+  const {
+    quiz_attempt_id,
+    question_id,
+    selected_option_id,
+    typed_answer,
+    is_correct,
+    time_taken
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO question_attempts
+         (quiz_attempt_id, question_id, selected_option_id, typed_answer, is_correct, time_taken)
+       VALUES
+         ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (quiz_attempt_id, question_id)
+       DO UPDATE SET
+         selected_option_id = EXCLUDED.selected_option_id,
+         typed_answer = EXCLUDED.typed_answer,
+         is_correct = EXCLUDED.is_correct,
+         time_taken = EXCLUDED.time_taken,
+         attempted_at = CURRENT_TIMESTAMP
+       RETURNING *;`,
+      [
+        quiz_attempt_id,
+        question_id,
+        selected_option_id || null,
+        typed_answer || null,
+        is_correct,
+        time_taken || null
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error submitting question attempt:', err);
+    res.status(500).json({ error: 'Failed to submit question attempt' });
+  }
+};
+
+exports.updateQuestionAttempt = async (req, res) => {
+  const attempt_id = req.params.id;
+  const { selected_option_id, typed_answer, is_correct, time_taken } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE question_attempts
+       SET selected_option_id = $1,
+           typed_answer = $2,
+           is_correct = $3,
+           time_taken = $4,
+           attempted_at = NOW()
+       WHERE id = $5
+       RETURNING *;`,
+      [
+        selected_option_id || null,
+        typed_answer || null,
+        is_correct,
+        time_taken || null,
+        attempt_id
+      ]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating question attempt:', err);
+    res.status(500).json({ error: 'Failed to update question attempt' });
+  }
+};
+
+exports.getQuestionAttemptsByQuizAttemptId = async (req, res) => {
+  const { quizAttemptId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM question_attempts WHERE quiz_attempt_id = $1 ORDER BY attempted_at;`,
+      [quizAttemptId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching question attempts:', err);
+    res.status(500).json({ error: 'Failed to get question attempts' });
+  }
+};
+
+exports.getQuestionAttemptById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM question_attempts WHERE id = $1;`,
+      [id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching question attempt:', err);
+    res.status(500).json({ error: 'Failed to get question attempt' });
+  }
+};

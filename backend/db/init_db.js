@@ -106,13 +106,15 @@ async function main() {
         time_taken INTEGER,
         score INTEGER DEFAULT 0,
         status VARCHAR(20) DEFAULT 'in_progress',
+        is_completed BOOLEAN DEFAULT FALSE,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+
       CREATE TABLE IF NOT EXISTS question_attempts (
         id BIGSERIAL PRIMARY KEY,
-        quiz_attempt_id BIGINT REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-        question_id BIGINT REFERENCES questions(id) ON DELETE CASCADE,
+        quiz_attempt_id BIGINT NOT NULL REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+        question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
         selected_option_id BIGINT REFERENCES options(id),
         typed_answer TEXT,
         is_correct BOOLEAN,
@@ -120,6 +122,7 @@ async function main() {
         attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (quiz_attempt_id, question_id)
       );
+
 
       CREATE TABLE IF NOT EXISTS user_sessions (
         id SERIAL PRIMARY KEY,
@@ -142,61 +145,9 @@ async function main() {
 
     `);
 
-    console.log("✅ Tables created. Inserting dummy data...");
+    console.log("✅ Tables created. ");
 
-    await pool.query(`
-      INSERT INTO users (username, email, phone, password, name, gender, dob, school, class, section, user_type, is_verified)
-      VALUES 
-      ('user1', 'user1@mail.com', '+911234567891', 'hashedpassword1', 'User 1', 'male', '2010-01-01', 'Village School', '6', 'A', 'student', TRUE),
-      ('user2', 'user2@mail.com', '+911234567892', 'hashedpassword2', 'User 2', 'male', '2010-01-02', 'Village School', '6', 'A', 'teacher', TRUE),
-      ('user3', 'user3@mail.com', '+911234567893', 'hashedpassword3', 'User 3', 'male', '2010-01-03', 'Village School', '6', 'A', 'admin', TRUE)
-      ON CONFLICT (username) DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO questions (question_text, question_type, tags, owner_id)
-      VALUES 
-      ('What is 2 + 2?', 'mcq', ARRAY['math', 'grade_6'], 2),
-      ('Is the earth flat?', 'true_false', ARRAY['science'], 2),
-      ('What is the capital of India?', 'type_in', ARRAY['geography'], 2)
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO options (question_id, option_text, is_correct)
-      VALUES
-      (1, '3', false),
-      (1, '4', true),
-      (1, '5', false),
-      (1, '22', false),
-      (2, 'True', false),
-      (2, 'False', true)
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO accepted_answers (question_id, acceptable_answer)
-      VALUES
-      (3, 'new delhi'),
-      (3, 'delhi')
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO quizzes (title, description, time_limit, quiz_type, owner_id)
-      VALUES 
-      ('Basic Knowledge Quiz', 'A simple test for demonstration.', 10, 'anytime', 2)
-      ON CONFLICT DO NOTHING;
-    `);
-
-    await pool.query(`
-      INSERT INTO quiz_questions (quiz_id, question_id, question_order)
-      VALUES
-      (1, 1, 1),
-      (1, 2, 2),
-      (1, 3, 3)
-      ON CONFLICT DO NOTHING;
-    `);
+    //Add seed data here
 
     console.log("✅ Done. Database initialized and populated.");
   } catch (err) {

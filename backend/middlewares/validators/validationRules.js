@@ -77,21 +77,30 @@ const resendOtpValidation = [
 
 const profileUpdateValidation = [
   body('username').not().exists().withMessage('Username cannot be changed'),
+  body('user_type').not().exists().withMessage('User type cannot be changed'),
+
   body('email').optional().isEmail().normalizeEmail(),
-  body('phone').optional().isMobilePhone(),
-  passwordField('new_password').optional(),        // new password (if changing password)
-  body('old_password').if(body('new_password').exists()).notEmpty().withMessage('Old password required'),
+  body('phone')
+    .optional()
+    .isMobilePhone().withMessage('Invalid phone number')
+    .notEmpty().withMessage('Phone number cannot be empty'),
+
+  body('new_password').optional(),
+  body('old_password')
+    .if(body('new_password').exists())
+    .notEmpty().withMessage('Old password required'),
+
   body('current_password')
-    .if(body('new_password').not().exists())       // required when not changing password
-    .notEmpty().withMessage('Current password required for profile update'),
+    .notEmpty().withMessage('Current password is required'),
+
   body('name').optional().trim().notEmpty(),
   body('gender').optional().isIn(['male', 'female', 'other']),
   body('dob').optional().isISO8601(),
   body('school').optional().notEmpty(),
   body('class').optional().notEmpty(),
   body('section').optional().notEmpty(),
-  body('user_type').optional().isIn(['student', 'teacher', 'admin']),
 ];
+
 
 // 🔸 Questions
 

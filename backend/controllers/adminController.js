@@ -1,3 +1,5 @@
+const db = require('../db/client');
+
 exports.getAllUsers = async (req, res) => {
   res.json({ message: 'Admin: get all users' });
 };
