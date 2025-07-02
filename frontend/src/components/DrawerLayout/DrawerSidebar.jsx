@@ -1,22 +1,38 @@
-const DrawerSidebar = ({ close }) => {
+import { NavLink } from 'react-router-dom';
+
+const getLinkClasses = ({ isActive }) =>
+  `w-full text-left px-4 py-2 rounded-md transition ${
+    isActive ? 'bg-primary text-white font-semibold' : 'hover:bg-base-200'
+  }`;
+
+function DrawerSidebar() {
   return (
     <div className="drawer-side z-40">
-      <label htmlFor="drawer-toggle" className="drawer-overlay" onClick={close} />
+      <label htmlFor="drawer" className="drawer-overlay" />
       <aside className="min-h-screen w-80 bg-base-100">
+        {/* Logo */}
         <div className="sticky top-0 z-20 flex items-center gap-2 p-4 backdrop-blur">
           <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
           </svg>
-          <span className="font-bold text-lg">My App</span>
+          <span className="font-bold text-lg">Telvy</span>
         </div>
-        <div className="p-4 space-y-2">
-          <div className="p-3 rounded bg-base-200">Placeholder 1</div>
-          <div className="p-3 rounded bg-base-200">Placeholder 2</div>
-          <div className="p-3 rounded bg-base-200">Placeholder 3</div>
-        </div>
+
+        {/* Menu */}
+        <ul className="menu px-4 py-2 w-full">
+          <li className="w-full">
+            <NavLink to="/dashboard" className={getLinkClasses}>Dashboard</NavLink>
+          </li>
+          <li className="w-full">
+            <NavLink to="/quizzes" className={getLinkClasses}>Quizzes</NavLink>
+          </li>
+          <li className="w-full">
+            <NavLink to="/settings" className={getLinkClasses}>Settings</NavLink>
+          </li>
+        </ul>
       </aside>
     </div>
   );
-};
+}
 
 export default DrawerSidebar;
