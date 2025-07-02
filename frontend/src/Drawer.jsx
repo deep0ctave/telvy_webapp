@@ -25,11 +25,6 @@ function Drawer({ showSidebar, children }) {
           {/* Sidebar Content */}
           <ul className="menu p-4 w-80 min-h-full bg-base-300 text-base-content">
              <li><NavLink to="/home" className={getLinkClasses}>Home</NavLink></li>
-            <li><NavLink to="/quizzes" className={getLinkClasses}>Quizzes</NavLink></li>
-            <li><NavLink to="/groups" className={getLinkClasses}>Groups</NavLink></li>
-            <li><NavLink to="/notifications" className={getLinkClasses}>Notifications</NavLink></li>
-            <li><NavLink to="/settings" className={getLinkClasses}>Settings</NavLink></li>
-            <li><NavLink to="/help" className={getLinkClasses}>Help & Feedback</NavLink></li>
           </ul>
         </div>
       )}
