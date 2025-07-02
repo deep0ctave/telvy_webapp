@@ -1,7 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import DrawerLayout from '../components/DrawerLayout/DrawerLayout';
 
 import Landing from '../pages/Landing';
+import About from '../pages/About';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
 import Dashboard from '../pages/Dashboard';
@@ -9,83 +10,62 @@ import Quizzes from '../pages/Quizzes';
 import Settings from '../pages/Settings';
 import NotFound from '../pages/NotFound';
 
-
 import PrivateRoute from './PrivateRoute';
+import ContactUs from '../pages/ContactUs';
+
+const LayoutWrapper = () => {
+  const location = useLocation();
+  const hideSidebarPaths = ['/', '/login', '/register', '/about', '/contact-us'];
+  const showSidebar = !hideSidebarPaths.includes(location.pathname);
+
+  return (
+    <DrawerLayout showSidebar={showSidebar}>
+      <Outlet />
+    </DrawerLayout>
+  );
+};
 
 const AppRouter = () => {
   return (
     <Routes>
+      
+      <Route element={<LayoutWrapper />}>
+        {/* Public */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact-us" element={<ContactUs />}/>
 
-      {/* Public Routes */}
-      <Route
-        path="/"
-        element={
-          <DrawerLayout showSidebar={false}>
-            <Landing />
-          </DrawerLayout>
-        }
-      />
-
-      <Route
-        path="/login"
-        element={
-          <DrawerLayout showSidebar={false}>
-            <Login />
-          </DrawerLayout>
-        }
-      />
-
-      <Route
-        path="/register"
-        element={
-           <DrawerLayout showSidebar={false}>
-            <Register />
-           </DrawerLayout>
-        }
-      />
-
-      {/* Private Routes */}
-      <Route
-        path="/dashboard"
-        element={
-            <DrawerLayout showSidebar={true}>
+        {/* Private */}
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
               <Dashboard />
-            </DrawerLayout>
-        }
-      />
-
-      <Route
-        path="/quizzes"
-        element={
-          <PrivateRoute>
-            <DrawerLayout showSidebar={true}>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/quizzes"
+          element={
+            <PrivateRoute>
               <Quizzes />
-            </DrawerLayout>
-          </PrivateRoute>
-        }
-      />
-
-      <Route
-        path="/settings"
-        element={
-          <PrivateRoute>
-            <DrawerLayout showSidebar={true}>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <PrivateRoute>
               <Settings />
-            </DrawerLayout>
-          </PrivateRoute>
-        }
-      />
+            </PrivateRoute>
+          }
+        />
 
-
-      {/* Catch-all 404 */}
-      <Route
-        path="*"
-        element={
-          <DrawerLayout showSidebar={false}>
-            <NotFound />
-          </DrawerLayout>
-        }
-      />
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Route>
     </Routes>
   );
 };
