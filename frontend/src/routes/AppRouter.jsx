@@ -3,10 +3,12 @@ import DrawerLayout from '../components/DrawerLayout/DrawerLayout';
 
 import Landing from '../pages/Landing';
 import Login from '../pages/Login';
+import Register from '../pages/Register';
 import Dashboard from '../pages/Dashboard';
 import Quizzes from '../pages/Quizzes';
 import Settings from '../pages/Settings';
 import NotFound from '../pages/NotFound';
+
 
 import PrivateRoute from './PrivateRoute';
 
@@ -30,6 +32,15 @@ const AppRouter = () => {
           <DrawerLayout showSidebar={false}>
             <Login />
           </DrawerLayout>
+        }
+      />
+
+      <Route
+        path="/register"
+        element={
+           <DrawerLayout showSidebar={false}>
+            <Register />
+           </DrawerLayout>
         }
       />
 
@@ -64,6 +75,7 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
 
       {/* Catch-all 404 */}
       <Route

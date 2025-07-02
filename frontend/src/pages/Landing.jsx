@@ -41,7 +41,7 @@ function LandingPage() {
   }, []);
 
   return (
-    <div ref={root} className="min-h-screen relative bg-base-100 text-base-content flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+    <div ref={root} className="h-[80vh] relative bg-base-100 text-base-content flex flex-col items-center justify-center px-6 text-center overflow-hidden">
       {/* Floating Question Marks */}
       <div className="absolute top-10 left-10 question-float opacity-70 text-primary">
         <QuestionMark />

@@ -19,7 +19,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // or your frontend domain
+  credentials: true               // ✅ allow cookies (credentials)
+}));
+
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
 app.use(express.json());
 app.use(morgan('dev'));
 

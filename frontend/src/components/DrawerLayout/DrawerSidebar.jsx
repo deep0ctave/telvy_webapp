@@ -1,11 +1,26 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const getLinkClasses = ({ isActive }) =>
   `w-full text-left px-4 py-2 rounded-md transition ${
     isActive ? 'bg-primary text-white font-semibold' : 'hover:bg-base-200'
   }`;
 
+
 function DrawerSidebar() {
+
+    const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <div className="drawer-side z-40">
       <label htmlFor="drawer" className="drawer-overlay" />
@@ -30,6 +45,13 @@ function DrawerSidebar() {
             <NavLink to="/settings" className={getLinkClasses}>Settings</NavLink>
           </li>
         </ul>
+
+        <div className="mt-auto">
+            <button onClick={handleLogout} className="btn btn-error w-full">
+            Logout
+            </button>
+        </div>
+        
       </aside>
     </div>
   );
