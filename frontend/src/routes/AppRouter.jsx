@@ -14,7 +14,8 @@ import ContactUs from '../components/pages/ContactUs';
 import QuizStart from '../components/pages/Attempts/QuizStart';
 import StartAttempt from '../components/pages/Attempts/StartAttempt';
 import AttemptResult from '../components/pages/Attempts/AttemptResult';
-import AttemptHistory from '../components/pages/Attempts/AttemptHistory'; // ✅ FIXED
+import AttemptHistory from '../components/pages/Attempts/AttemptHistory';
+import LiveAttempt from '../components/pages/Attempts/LiveAttempt';
 
 import PrivateRoute from './PrivateRoute';
 
@@ -76,14 +77,7 @@ const AppRouter = () => {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/attempts/live/:attemptId"
-          element={
-            <PrivateRoute>
-              <StartAttempt />
-            </PrivateRoute>
-          }
-        />
+
         <Route
           path="/attempts/result/:attemptId"
           element={
@@ -100,6 +94,15 @@ const AppRouter = () => {
             </PrivateRoute>
           }
         />
+
+        <Route path="/attempts/live/:attemptId" 
+        element={
+          <PrivateRoute>
+            <LiveAttempt />
+          </PrivateRoute>
+        }
+         />
+
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />

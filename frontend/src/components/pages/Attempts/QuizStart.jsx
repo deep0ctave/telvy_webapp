@@ -1,97 +1,82 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, AlarmClock, ClipboardList, BookOpen } from "lucide-react";
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CalendarDays, Clock10, Tags, CircleUser } from 'lucide-react';
 
 const QuizStart = () => {
-  const { id } = useParams(); // quizId
+  const { quizId } = useParams();
   const navigate = useNavigate();
-
   const [quiz, setQuiz] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    // Simulate quiz fetch
     setTimeout(() => {
       setQuiz({
-        id,
-        title: "Science Basics Quiz",
-        description: "Test your knowledge of basic science concepts.",
+        id: quizId,
+        title: "General Science Quiz",
+        description: "Test your basics in physics, chemistry, and biology.",
         time_limit: 15,
-        total_questions: 10,
         quiz_type: "mcq",
-        image_url: "https://source.unsplash.com/600x300/?science",
+        tags: ["science", "biology", "physics"],
+        image_url:
+          "https://images.unsplash.com/photo-1581090700227-1e8f2b0f3428?auto=format&fit=crop&w=900&q=60",
+        starts_at: new Date(Date.now()),
+        ends_at: new Date(Date.now() + 30 * 60000),
       });
-      setLoading(false);
-    }, 1000);
-  }, [id]);
+    }, 300);
+  }, [quizId]);
 
-  const handleStart = async () => {
-    setStarting(true);
+  const handleStart = () => navigate(`/attempts/live/${quizId}`);
 
-    try {
-      // Simulate API call to /attempts/start
-      const fakeAttemptId = "12345";
-      setTimeout(() => {
-        navigate(`/attempts/live/${fakeAttemptId}`);
-      }, 500);
-    } catch (err) {
-      console.error("Failed to start attempt", err);
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!quiz) {
-    return <div className="text-center text-error">Quiz not found.</div>;
-  }
+  if (!quiz) return <div className="p-6">Loading quiz...</div>;
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-      <div className="card bg-base-100 shadow-xl">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+      <div className="card bg-base-100 border border-base-300 shadow-md overflow-hidden">
         {quiz.image_url && (
-          <figure>
-            <img
-              src={quiz.image_url}
-              alt={quiz.title}
-              className="w-full max-h-[300px] object-cover"
-            />
-          </figure>
+          <img
+            src={quiz.image_url}
+            alt={quiz.title}
+            className="w-full h-52 object-cover"
+          />
         )}
-        <div className="card-body space-y-2">
-          <h1 className="card-title text-3xl">{quiz.title}</h1>
-          <p className="text-gray-500">{quiz.description}</p>
+        <div className="card-body p-4 space-y-3">
+          <h2 className="text-xl font-bold">{quiz.title}</h2>
+          <p className="text-sm text-base-content/70">{quiz.description}</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 text-sm text-gray-600">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mt-2">
             <div className="flex items-center gap-2">
-              <AlarmClock className="w-4 h-4 text-primary" />
-              Time Limit: {quiz.time_limit} mins
+              <Clock10 className="w-4 h-4 text-primary" />
+              <span>{quiz.time_limit} mins</span>
             </div>
             <div className="flex items-center gap-2">
-              <ClipboardList className="w-4 h-4 text-info" />
-              Questions: {quiz.total_questions}
+              <CalendarDays className="w-4 h-4 text-primary" />
+              <span>
+                {new Date(quiz.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{" "}
+                {new Date(quiz.ends_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-success" />
-              Type: {quiz.quiz_type.toUpperCase()}
+              <CircleUser className="w-4 h-4 text-primary" />
+              <span className="capitalize">{quiz.quiz_type}</span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Tags className="w-4 h-4 text-primary" />
+              <div className="flex gap-1 flex-wrap">
+                {quiz.tags.map((tag, i) => (
+                  <div key={i} className="badge badge-outline badge-sm">
+                    {tag}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="card-actions justify-end mt-6">
-            <button
-              onClick={handleStart}
-              disabled={starting}
-              className={`btn btn-primary ${starting ? "btn-disabled" : ""}`}
-            >
-              {starting ? "Starting..." : "Start Quiz"}
+          <div className="alert alert-info text-xs sm:text-sm mt-4">
+            Once you start the quiz, the timer will begin. Do not refresh or leave.
+          </div>
+
+          <div className="flex justify-end">
+            <button className="btn btn-primary btn-md sm:btn-md mt-2" onClick={handleStart}>
+              Start Quiz
             </button>
           </div>
         </div>
