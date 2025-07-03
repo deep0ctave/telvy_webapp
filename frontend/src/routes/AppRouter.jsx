@@ -1,17 +1,22 @@
 import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import DrawerLayout from '../components/DrawerLayout/DrawerLayout';
 
-import Landing from '../pages/Landing';
-import About from '../pages/About';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
-import Dashboard from '../pages/Dashboard';
-import Quizzes from '../pages/Quizzes';
-import Settings from '../pages/Settings';
-import NotFound from '../pages/NotFound';
+import Landing from '../components/pages/Landing';
+import About from '../components/pages/About';
+import Login from '../components/pages/Login';
+import Register from '../components/pages/Register';
+import Dashboard from '../components/pages/Dashboard';
+import Quizzes from '../components/pages/Quizzes';
+import Settings from '../components/pages/Settings';
+import NotFound from '../components/pages/NotFound';
+import ContactUs from '../components/pages/ContactUs';
+
+import QuizStart from '../components/pages/Attempts/QuizStart';
+import StartAttempt from '../components/pages/Attempts/StartAttempt';
+import AttemptResult from '../components/pages/Attempts/AttemptResult';
+import AttemptHistory from '../components/pages/Attempts/AttemptHistory'; // ✅ FIXED
 
 import PrivateRoute from './PrivateRoute';
-import ContactUs from '../pages/ContactUs';
 
 const LayoutWrapper = () => {
   const location = useLocation();
@@ -28,14 +33,13 @@ const LayoutWrapper = () => {
 const AppRouter = () => {
   return (
     <Routes>
-      
       <Route element={<LayoutWrapper />}>
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/about" element={<About />} />
-        <Route path="/contact-us" element={<ContactUs />}/>
+        <Route path="/contact-us" element={<ContactUs />} />
 
         {/* Private */}
         <Route
@@ -59,6 +63,40 @@ const AppRouter = () => {
           element={
             <PrivateRoute>
               <Settings />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Quiz Attempt Pages */}
+        <Route
+          path="/attempts/start/:quizId"
+          element={
+            <PrivateRoute>
+              <QuizStart />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/attempts/live/:attemptId"
+          element={
+            <PrivateRoute>
+              <StartAttempt />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/attempts/result/:attemptId"
+          element={
+            <PrivateRoute>
+              <AttemptResult />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/attempts/history"
+          element={
+            <PrivateRoute>
+              <AttemptHistory />
             </PrivateRoute>
           }
         />

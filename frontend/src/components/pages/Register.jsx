@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { registerUser, verifyOtp } from '../services/auth';
+import { registerUser, verifyOtp } from '../../services/auth';
 
 export default function Register() {
   const [step, setStep] = useState(1);
