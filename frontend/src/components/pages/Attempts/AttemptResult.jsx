@@ -1,71 +1,167 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Trophy, Loader2 } from "lucide-react";
+import { useParams } from "react-router-dom";
+
+const mockAttemptResult = {
+  questions: [
+    {
+      id: 1,
+      question_text: "What is 2 + 2?",
+      question_type: "mcq",
+      options: ["2", "3", "4", "5"],
+      correct_answer: "4",
+      selected_answer: "4",
+    },
+    {
+      id: 2,
+      question_text: "The sky is blue. (True/False)",
+      question_type: "true_false",
+      options: ["True", "False"],
+      correct_answer: "True",
+      selected_answer: "False",
+    },
+    {
+      id: 3,
+      question_text: "Name the capital of India.",
+      question_type: "type_in",
+      correct_answer: "New Delhi",
+      selected_answer: "",
+    },
+  ],
+};
 
 const AttemptResult = () => {
   const { attemptId } = useParams();
-  const navigate = useNavigate();
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
-    // Simulate result fetch
-    setTimeout(() => {
-      setResult({
-        score: 8,
-        total: 10,
-        percentage: 80,
-        correct: 8,
-        incorrect: 2,
-        attempted: 10,
-        quizTitle: "Science Basics Quiz",
-      });
-      setLoading(false);
-    }, 1000);
-  }, [attemptId]);
+    // Simulate fetch
+    setQuestions(mockAttemptResult.questions);
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 text-primary animate-spin" />
-      </div>
-    );
-  }
+  const currentQuestion = questions[currentQuestionIndex];
 
-  if (!result) {
-    return <div className="text-center text-error">Result not found.</div>;
-  }
+  const getAnswerClass = (option, question) => {
+    const { selected_answer, correct_answer } = question;
+    if (selected_answer === "") return "bg-base-200";
+
+    if (option === correct_answer && option === selected_answer) {
+      return "border border-green-500";
+    }
+    if (option === selected_answer && selected_answer !== correct_answer) {
+      return "border border-red-500";
+    }
+    if (option === correct_answer) {
+      return "border border-green-300";
+    }
+    return "bg-base-100";
+  };
 
   return (
-    <div className="p-6 max-w-xl mx-auto space-y-6">
-      <div className="bg-gradient-to-r from-primary to-secondary text-primary-content rounded-box p-6 shadow text-center">
-        <Trophy className="w-10 h-10 mx-auto mb-2" />
-        <h1 className="text-2xl font-bold mb-1">{result.quizTitle}</h1>
-        <p className="text-lg">You scored {result.score} out of {result.total} ({result.percentage}%)</p>
-      </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Attempt Result</h1>
 
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        <div className="bg-base-200 p-4 rounded-box text-center">
-          <p className="font-bold text-success">Correct</p>
-          <p>{result.correct}</p>
-        </div>
-        <div className="bg-base-200 p-4 rounded-box text-center">
-          <p className="font-bold text-error">Incorrect</p>
-          <p>{result.incorrect}</p>
-        </div>
-        <div className="bg-base-200 p-4 rounded-box text-center col-span-2">
-          <p className="font-bold">Total Attempted</p>
-          <p>{result.attempted}</p>
-        </div>
-      </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Question section */}
+        <div className="flex-1 space-y-4">
+          {currentQuestion && (
+            <div className="card bg-base-200 border border-base-300 shadow">
+              <div className="card-body space-y-4">
+                <h2 className="card-title">
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </h2>
+                <p className="text-lg">{currentQuestion.question_text}</p>
 
-      <div className="text-center">
-        <button
-          className="btn btn-outline btn-primary mt-4"
-          onClick={() => navigate("/dashboard")}
-        >
-          Back to Dashboard
-        </button>
+                <div className="space-y-2">
+                  {/* MCQ / True False */}
+                  {(currentQuestion.question_type === "mcq" ||
+                    currentQuestion.question_type === "true_false") &&
+                    currentQuestion.options.map((opt, idx) => (
+                      <label
+                        key={idx}
+                        className={`flex items-center gap-2 rounded px-3 py-2 ${getAnswerClass(
+                          opt,
+                          currentQuestion
+                        )}`}
+                      >
+                        <input
+                          type="radio"
+                          disabled
+                          name={`q-${currentQuestion.id}`}
+                          className="radio"
+                          checked={currentQuestion.selected_answer === opt}
+                          readOnly
+                        />
+                        <span>{opt}</span>
+                      </label>
+                    ))}
+
+                  {/* Type-in */}
+                  {currentQuestion.question_type === "type_in" && (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        className="input input-bordered w-full"
+                        value={currentQuestion.selected_answer}
+                        disabled
+                      />
+                      <p className="text-sm text-green-600">
+                        Correct Answer: {currentQuestion.correct_answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation buttons */}
+          <div className="flex justify-between">
+            <button
+              className="btn"
+              disabled={currentQuestionIndex === 0}
+              onClick={() => setCurrentQuestionIndex((i) => i - 1)}
+            >
+              Previous
+            </button>
+            <button
+              className="btn"
+              disabled={currentQuestionIndex === questions.length - 1}
+              onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        {/* Right navigator */}
+        <div className="w-full lg:w-64 shrink-0 bg-base-100 border border-base-300 rounded-box p-4 shadow">
+          <h3 className="font-semibold text-center mb-2">Navigate</h3>
+          <div className="grid grid-cols-5 gap-2 justify-center">
+            {questions.map((q, i) => {
+              const attempted = !!q.selected_answer;
+              const isCorrect = q.selected_answer === q.correct_answer;
+
+              return (
+                <button
+                  key={q.id}
+                  className={`btn btn-xs ${
+                    i === currentQuestionIndex
+                      ? "btn-primary"
+                      : !attempted
+                      ? "btn-ghost"
+                      : isCorrect
+                      ? "btn-success"
+                      : "btn-error"
+                  }`}
+                  onClick={() => setCurrentQuestionIndex(i)}
+                >
+                  {i + 1}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

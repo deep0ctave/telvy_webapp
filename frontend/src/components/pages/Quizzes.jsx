@@ -79,13 +79,13 @@ const Quizzes = () => {
         <h1 className="text-2xl font-bold">Quizzes</h1>
         <div className="tabs tabs-boxed">
           {["all", "attempted", "live", "scheduled"].map((type) => (
-            <a
+            <button
               key={type}
               onClick={() => setFilter(type)}
               className={`tab ${filter === type ? "tab-active" : ""}`}
             >
               {type.charAt(0).toUpperCase() + type.slice(1)}
-            </a>
+            </button>
           ))}
         </div>
       </div>
@@ -117,13 +117,16 @@ const Quizzes = () => {
                       <span className="badge badge-accent">Attempted</span>
                     )}
                   </div>
+
                   <p>{quiz.description}</p>
+
                   <div className="text-sm opacity-70 flex gap-2 items-center">
                     <CalendarClock className="w-4 h-4" />
                     <span>
                       {quiz.time_limit} mins • {quiz.quiz_type}
                     </span>
                   </div>
+
                   <div className="flex flex-wrap gap-2">
                     {quiz.tags?.map((tag, idx) => (
                       <div key={idx} className="badge badge-outline badge-sm">
@@ -159,7 +162,8 @@ const Quizzes = () => {
                       </>
                     )}
 
-                    {(actualUser.user_type === "teacher" || actualUser.user_type === "admin") && (
+                    {(actualUser.user_type === "teacher" ||
+                      actualUser.user_type === "admin") && (
                       <>
                         <button className="btn btn-sm btn-neutral">
                           <Eye className="w-4 h-4 mr-1" /> View

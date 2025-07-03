@@ -36,7 +36,7 @@ const LiveAttempt = () => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          handleSubmit(); // auto-submit if needed
+          handleSubmit();
           return 0;
         }
         return prev - 1;
@@ -51,17 +51,15 @@ const LiveAttempt = () => {
   };
 
   const handleSubmit = () => {
-    alert("Time's up! Quiz auto-submitted.");
-    // Do submit logic here
+    alert("Quiz submitted!");
+    // You can navigate or save here
   };
 
   const currentQuestion = questions[currentQuestionIndex];
   const progressPercent = ((300 - timeLeft) / 300) * 100;
 
   const formatTime = (secs) => {
-    const m = Math.floor(secs / 60)
-      .toString()
-      .padStart(2, "0");
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
     const s = (secs % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
@@ -69,9 +67,9 @@ const LiveAttempt = () => {
   return (
     <div className="p-6">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Question Panel */}
+        {/* Question panel */}
         <div className="flex-1 space-y-4">
-          {/* Timer Bar */}
+          {/* Timer */}
           <div>
             <progress
               className="progress progress-primary w-full mb-1"
@@ -89,9 +87,18 @@ const LiveAttempt = () => {
               <p className="text-lg">{currentQuestion?.question_text}</p>
 
               <div className="space-y-2">
-                {currentQuestion?.question_type === "mcq" &&
-                  currentQuestion.options.map((opt, idx) => (
-                    <label key={idx} className="flex items-center gap-2">
+                {/* MCQ or True/False options */}
+                {(currentQuestion?.question_type === "mcq" ||
+                  currentQuestion?.question_type === "true_false") &&
+                  (currentQuestion.options || []).map((opt, idx) => (
+                    <label
+                      key={idx}
+                      className={`flex items-center gap-3 px-3 py-2 rounded border cursor-pointer ${
+                        answers[currentQuestion.id] === opt
+                          ? "border-primary"
+                          : "border-base-300"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name={`q-${currentQuestion.id}`}
@@ -103,20 +110,7 @@ const LiveAttempt = () => {
                     </label>
                   ))}
 
-                {currentQuestion?.question_type === "true_false" &&
-                  ["True", "False"].map((opt) => (
-                    <label key={opt} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`q-${currentQuestion.id}`}
-                        className="radio"
-                        checked={answers[currentQuestion.id] === opt}
-                        onChange={() => handleOptionSelect(currentQuestion.id, opt)}
-                      />
-                      <span>{opt}</span>
-                    </label>
-                  ))}
-
+                {/* Type-in */}
                 {currentQuestion?.question_type === "type_in" && (
                   <input
                     type="text"
@@ -132,7 +126,7 @@ const LiveAttempt = () => {
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <button
               className="btn"
               disabled={currentQuestionIndex === 0}
@@ -140,17 +134,23 @@ const LiveAttempt = () => {
             >
               Previous
             </button>
-            <button
-              className="btn"
-              disabled={currentQuestionIndex === questions.length - 1}
-              onClick={() => setCurrentQuestionIndex((i) => i + 1)}
-            >
-              Next
-            </button>
+
+            {currentQuestionIndex === questions.length - 1 ? (
+              <button className="btn btn-primary" onClick={handleSubmit}>
+                Submit Quiz
+              </button>
+            ) : (
+              <button
+                className="btn"
+                onClick={() => setCurrentQuestionIndex((i) => i + 1)}
+              >
+                Next
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Right Navigator */}
+        {/* Navigator */}
         <div className="w-full lg:w-64 shrink-0 bg-base-100 border border-base-300 rounded-box p-4 shadow">
           <h3 className="font-semibold text-center mb-2">Navigate</h3>
           <div className="grid grid-cols-5 gap-2 justify-center">
@@ -161,7 +161,7 @@ const LiveAttempt = () => {
                   i === currentQuestionIndex
                     ? "btn-primary"
                     : answers[q.id]
-                    ? "btn-success"
+                    ? "btn-info"
                     : "btn-outline"
                 }`}
                 onClick={() => setCurrentQuestionIndex(i)}
