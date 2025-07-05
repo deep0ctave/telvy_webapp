@@ -7,6 +7,7 @@ import About from '../components/pages/About';
 import ContactUs from '../components/pages/ContactUs';
 import Login from '../components/pages/Login';
 import Register from '../components/pages/Register';
+import ForgotPassword from '../components/pages/ForgotPassword';
 
 // Common Private
 import Dashboard from '../components/pages/Dashboard';
@@ -34,7 +35,7 @@ import PrivateRoute from './PrivateRoute';
 
 const LayoutWrapper = () => {
   const location = useLocation();
-  const hideSidebarPaths = ['/', '/login', '/register', '/about', '/contact-us'];
+  const hideSidebarPaths = ['/', '/login', '/register', '/about', '/contact-us', '/forgot-password'];
   const showSidebar = !hideSidebarPaths.includes(location.pathname);
 
   return (
@@ -54,6 +55,8 @@ const AppRouter = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact-us" element={<ContactUs />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
 
         {/* 🔐 Common Authenticated Routes */}
         <Route

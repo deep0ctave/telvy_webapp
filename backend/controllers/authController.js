@@ -324,7 +324,7 @@ exports.forgotPasswordInitiate = async (req, res) => {
       [phone]
     );
 
-    const otp = generateOtp();
+    const otp = await sendOtp(phone, 'forgot-password');
     const userId = result.rows[0].id;
 
     const data = {

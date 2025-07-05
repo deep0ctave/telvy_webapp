@@ -85,6 +85,18 @@ export const fetchSchoolSuggestions = async (query) => {
   }
 };
 
+export const createFullQuiz = (payload) =>
+  api.post('/full-quizzes', payload);
+
+export const getFullQuiz = (quizId) =>
+  api.get(`/full-quizzes/${quizId}`);
+
+export const updateFullQuiz = (quizId, payload) =>
+  api.put(`/full-quizzes/${quizId}`, payload);
+
+export const deleteFullQuiz = (quizId, withQuestions = false) =>
+  api.delete(`/full-quizzes/${quizId}?deleteQuestions=${withQuestions}`);
+
 // ✅ Log all requests
 api.interceptors.request.use((config) => {
   console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data || {});

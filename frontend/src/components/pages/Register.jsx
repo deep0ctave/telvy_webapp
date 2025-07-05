@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import DatePicker from 'react-datepicker';
 import { format } from 'date-fns';
-import api from '../../services/api'; // ✅ Your axios instance
+import { registerUser, verifyOtp, resendOtp } from '../../services/auth';
+import api from '../../services/api';
 import 'react-toastify/dist/ReactToastify.css';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -52,31 +53,44 @@ const Register = () => {
   const next = () => validateStep() && setStep((s) => Math.min(3, s + 1));
   const prev = () => setStep((s) => Math.max(1, s - 1));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep()) return;
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      document.getElementById('otp_modal')?.showModal();
+    try {
+      await registerUser({ ...form, user_type: 'student' });
       toast.success('OTP sent to your phone');
-    }, 1000);
-  };
-
-  const handleVerify = () => {
-    if (!otp.trim()) {
-      toast.error('Please enter the OTP');
-      return;
-    }
-    setSubmitting(true);
-    setTimeout(() => {
+      document.getElementById('otp_modal')?.showModal();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to register');
+    } finally {
       setSubmitting(false);
-      toast.success('Registration complete');
-      navigate('/login');
-    }, 1000);
+    }
   };
 
-  const handleResendOtp = () => {
-    toast.success('OTP resent successfully');
+  const handleVerify = async () => {
+    if (!otp.trim()) return toast.error('Please enter the OTP');
+    setSubmitting(true);
+    try {
+      await verifyOtp({ phone: form.phone, otp });
+      toast.success('🎉 Registration successful. Redirecting to login...', { autoClose: 2000 });
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'OTP verification failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      await resendOtp(form.phone);
+      toast.success('OTP resent successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || 'Failed to resend OTP');
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -86,7 +100,7 @@ const Register = () => {
     }
   };
 
-  // 🔍 Debounced school fetch
+  // 🔍 Fetch school suggestions
   useEffect(() => {
     const controller = new AbortController();
     const fetchSchools = async () => {

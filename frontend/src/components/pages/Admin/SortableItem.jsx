@@ -1,98 +1,117 @@
-// SortableItem.jsx
 import React from "react";
-import { ChevronDown, ChevronUp, Trash2, GripVertical } from "lucide-react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
-export default function SortableItem({ id, question, onToggle, onDelete, onChange }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+export default function SortableItem({ id, index, question, onToggle, onDelete, onChange }) {
+  const renderOptions = () => {
+    if (question.question_type === "mcq") {
+      return question.options.map((opt, idx) => (
+        <label key={idx} className="input w-full flex items-center gap-2">
+          <input
+            type="radio"
+            name={`correct_${id}`}
+            className="radio"
+            checked={opt === question.correct_answer}
+            onChange={() => onChange("correct_answer", opt)}
+          />
+          <input
+            type="text"
+            className="grow"
+            placeholder={`Option ${idx + 1}`}
+            value={opt}
+            onChange={e => {
+              const newOpts = [...question.options];
+              newOpts[idx] = e.target.value;
+              onChange("options", newOpts);
+            }}
+          />
+        </label>
+      ));
+    }
+
+    if (question.question_type === "true_false") {
+      return ["True", "False"].map(opt => (
+        <label key={opt} className="input w-full flex items-center gap-2">
+          <input
+            type="radio"
+            name={`correct_${id}`}
+            className="radio"
+            checked={opt === question.correct_answer}
+            onChange={() => onChange("correct_answer", opt)}
+          />
+          <span className="label">{opt}</span>
+        </label>
+      ));
+    }
+
+    if (question.question_type === "type_in") {
+      return (
+        <label className="input w-full">
+          <span className="label">Correct Answer</span>
+          <input
+            type="text"
+            value={question.correct_answer}
+            placeholder="Correct answer"
+            onChange={e => onChange("correct_answer", e.target.value)}
+          />
+        </label>
+      );
+    }
+
+    return null;
+  };
 
   return (
-    <div ref={setNodeRef} style={style} className="card bg-base-200 border mb-2">
-      <div className="card-body p-4 space-y-2">
-        <div className="flex justify-between items-center">
-          <div {...attributes} {...listeners} className="cursor-grab"><GripVertical /></div>
-          <div className="flex gap-2">
-            <button onClick={onToggle}>{question.collapsed ? <ChevronDown /> : <ChevronUp />}</button>
-            <button onClick={onDelete}><Trash2 /></button>
-          </div>
+    <div className="border rounded-xl p-4 bg-base-100 shadow-sm space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <GripVertical className="cursor-grab text-gray-400" />
+          <span className="badge badge-primary">Q{index}</span>
+          <span className="font-semibold">Question</span>
         </div>
+        <div className="flex gap-2">
+          <button className="btn btn-sm btn-ghost" onClick={onToggle}>
+            {question.collapsed ? <ChevronRight /> : <ChevronDown />}
+          </button>
+          <button className="btn btn-sm btn-error btn-outline" onClick={onDelete}>
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
-        {!question.collapsed && (
-          <>
+      {!question.collapsed && (
+        <div className="space-y-4 pl-6">
+          <label className="input w-full">
+            <span className="label">Question Text</span>
             <textarea
-              className="textarea textarea-bordered w-full"
-              placeholder="Question text"
+              className="textarea w-full"
+              placeholder="Enter your question"
               value={question.question_text}
               onChange={e => onChange("question_text", e.target.value)}
             />
+          </label>
 
+          <label className="input w-full">
+            <span className="label">Question Type</span>
             <select
-              className="select select-bordered w-full"
+              className="select w-full"
               value={question.question_type}
-              onChange={e => onChange("question_type", e.target.value)}
+              onChange={e => {
+                const type = e.target.value;
+                onChange("question_type", type);
+                if (type === "mcq") onChange("options", ["", "", "", ""]);
+                else if (type === "true_false") onChange("options", ["True", "False"]);
+                else onChange("options", []);
+              }}
             >
-              <option value="mcq">MCQ</option>
-              <option value="true_false">True/False</option>
-              <option value="type_in">Type‑In</option>
+              <option value="mcq">Multiple Choice</option>
+              <option value="true_false">True / False</option>
+              <option value="type_in">Type-in Answer</option>
             </select>
+          </label>
 
-            {(question.question_type === "mcq" || question.question_type === "true_false") && (
-              <div className="space-y-2">
-                {question.options.map((opt, oi) => (
-                  <div key={oi} className="flex gap-2 items-center">
-                    <input
-                      className="input input-bordered flex-1"
-                      placeholder={`Option ${oi + 1}`}
-                      value={opt}
-                      onChange={e => {
-                        const newOpts = [...question.options];
-                        newOpts[oi] = e.target.value;
-                        onChange("options", newOpts);
-                      }}
-                    />
-                    <input
-                      type="radio"
-                      name={`correct-${id}`}
-                      checked={question.correct_answer === opt}
-                      onChange={() => onChange("correct_answer", opt)}
-                    />
-                    {question.question_type === "mcq" && oi >= 2 && (
-                      <button
-                        className="btn btn-sm btn-error"
-                        onClick={() => {
-                          const newOpts = [...question.options];
-                          newOpts.splice(oi, 1);
-                          onChange("options", newOpts);
-                        }}
-                      >Delete</button>
-                    )}
-                  </div>
-                ))}
-                {question.question_type === "mcq" && (
-                  <button
-                    className="btn btn-xs btn-outline"
-                    onClick={() => onChange("options", [...question.options, ""])}
-                  >
-                    + Option
-                  </button>
-                )}
-              </div>
-            )}
-
-            {question.question_type === "type_in" && (
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder="Correct answer"
-                value={question.correct_answer}
-                onChange={e => onChange("correct_answer", e.target.value)}
-              />
-            )}
-          </>
-        )}
-      </div>
+          {renderOptions()}
+        </div>
+      )}
     </div>
   );
 }
