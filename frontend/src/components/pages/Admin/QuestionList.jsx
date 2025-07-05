@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Pencil, Trash2, Filter } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import CreateQuestionModal from "./CreateQuestionModal";
 import EditQuestionModal from "./EditQuestionModal";
 import DeleteQuestionModal from "./DeleteQuestionModal";
@@ -42,6 +42,7 @@ const QuestionList = () => {
   const [showAddToQuizModal, setShowAddToQuizModal] = useState(false);
 
   useEffect(() => {
+    // Simulate fetch
     setTimeout(() => {
       setQuestions(mockQuestions);
       setFiltered(mockQuestions);
@@ -65,7 +66,16 @@ const QuestionList = () => {
 
   const handleDelete = (id) => {
     setQuestions((prev) => prev.filter((q) => q.id !== id));
+    setSelected((prev) => prev.filter((qid) => qid !== id));
     setDeleteTarget(null);
+  };
+
+  const handleCreateQuiz = () => {
+    if (selected.length === 0) {
+      alert("Select at least one question first.");
+      return;
+    }
+    setShowAddToQuizModal(true);
   };
 
   return (
@@ -73,7 +83,7 @@ const QuestionList = () => {
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold">Manage Questions</h1>
         <div className="flex gap-2">
-          <button className="btn btn-outline" onClick={() => setShowAddToQuizModal(true)}>
+          <button className="btn btn-outline" onClick={handleCreateQuiz}>
             ➕ Add to Quiz
           </button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
@@ -151,6 +161,7 @@ const QuestionList = () => {
         </table>
       </div>
 
+      {/* Create */}
       {showCreate && (
         <CreateQuestionModal
           onClose={() => setShowCreate(false)}
@@ -161,6 +172,7 @@ const QuestionList = () => {
         />
       )}
 
+      {/* Edit */}
       {editTarget && (
         <EditQuestionModal
           question={editTarget}
@@ -174,6 +186,7 @@ const QuestionList = () => {
         />
       )}
 
+      {/* Delete */}
       {deleteTarget && (
         <DeleteQuestionModal
           isOpen
@@ -183,10 +196,23 @@ const QuestionList = () => {
         />
       )}
 
+      {/* Add to Quiz Modal */}
       {showAddToQuizModal && (
         <CreateQuizFromQuestionsModal
-          selectedQuestions={questions.filter((q) => selected.includes(q.id))}
+          questions={questions.filter((q) => selected.includes(q.id))}
           onClose={() => setShowAddToQuizModal(false)}
+          onCreateNew={({ title, questions }) => {
+            console.log("Create new quiz:", title, questions);
+            alert(`New quiz "${title}" created with ${questions.length} questions.`);
+          }}
+          onAddToExisting={({ quizId, questions }) => {
+            console.log("Add to existing quiz:", quizId, questions);
+            alert(`Added ${questions.length} questions to quiz ID: ${quizId}`);
+          }}
+          onEdit={(q) => setEditTarget(q)}
+          onDelete={(id) => {
+            handleDelete(id);
+          }}
         />
       )}
     </div>

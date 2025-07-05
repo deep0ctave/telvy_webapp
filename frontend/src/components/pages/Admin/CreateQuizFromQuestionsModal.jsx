@@ -8,12 +8,12 @@ const mockQuizzes = [
 ];
 
 export default function CreateQuizFromQuestionsModal({
-  questions,
+  questions = [],            // ✅ default to empty array
   onClose,
-  onCreateNew,
-  onAddToExisting,
-  onEdit,
-  onDelete,
+  onCreateNew = () => {},    // ✅ default no-op
+  onAddToExisting = () => {},
+  onEdit = () => {},
+  onDelete = () => {},
 }) {
   const [selected, setSelected] = useState([]);
   const [mode, setMode] = useState("new");
@@ -37,6 +37,7 @@ export default function CreateQuizFromQuestionsModal({
       if (!existingQuizId) return alert("Select an existing quiz.");
       onAddToExisting({ quizId: existingQuizId, questions: selectedQuestions });
     }
+
     onClose();
   };
 
@@ -102,49 +103,52 @@ export default function CreateQuizFromQuestionsModal({
               </tr>
             </thead>
             <tbody>
-              {questions.map((q) => (
-                <tr key={q.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={selected.includes(q.id)}
-                      onChange={() => toggleSelected(q.id)}
-                    />
-                  </td>
-                  <td>{q.question_text}</td>
-                  <td>
-                    <span className="badge badge-outline capitalize">{q.question_type}</span>
-                  </td>
-                  <td>
-                    {q.tags?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {q.tags.map((tag, idx) => (
-                          <span key={idx} className="badge badge-ghost text-xs">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  <td className="flex gap-2">
-                    <button className="btn btn-sm btn-info" onClick={() => onEdit(q)}>
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button className="btn btn-sm btn-error" onClick={() => onDelete(q.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {questions.length === 0 && (
+              {questions.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="text-center text-base-content/60 py-6">
                     No questions available.
                   </td>
                 </tr>
+              ) : (
+                questions.map((q) => (
+                  <tr key={q.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        className="checkbox"
+                        checked={selected.includes(q.id)}
+                        onChange={() => toggleSelected(q.id)}
+                      />
+                    </td>
+                    <td>{q.question_text}</td>
+                    <td>
+                      <span className="badge badge-outline capitalize">
+                        {q.question_type}
+                      </span>
+                    </td>
+                    <td>
+                      {q.tags?.length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {q.tags.map((tag, idx) => (
+                            <span key={idx} className="badge badge-ghost text-xs">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="flex gap-2">
+                      <button className="btn btn-sm btn-info" onClick={() => onEdit(q)}>
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button className="btn btn-sm btn-error" onClick={() => onDelete(q.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
