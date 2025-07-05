@@ -1,32 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+// File: QuizStart.jsx
+import React from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { CalendarDays, Clock10, Tags, CircleUser } from 'lucide-react';
 
 const QuizStart = () => {
   const { quizId } = useParams();
+  const { state } = useLocation();
   const navigate = useNavigate();
-  const [quiz, setQuiz] = useState(null);
+  const quiz = state?.quiz;
 
-  useEffect(() => {
-    setTimeout(() => {
-      setQuiz({
-        id: quizId,
-        title: "General Science Quiz",
-        description: "Test your basics in physics, chemistry, and biology.",
-        time_limit: 15,
-        quiz_type: "mcq",
-        tags: ["science", "biology", "physics"],
-        image_url:
-          "https://images.unsplash.com/photo-1581090700227-1e8f2b0f3428?auto=format&fit=crop&w=900&q=60",
-        starts_at: new Date(Date.now()),
-        ends_at: new Date(Date.now() + 30 * 60000),
-      });
-    }, 300);
-  }, [quizId]);
+  if (!quiz) {
+    return <div className="p-6">Quiz not found or data missing.</div>;
+  }
 
-  const handleStart = () => navigate(`/attempts/live/${quizId}`);
+  const now = new Date();
+  const startsAt = new Date(quiz.starts_at || Date.now()); // fallback to now
+  const endsAt = new Date(quiz.ends_at || Date.now() + quiz.duration_minutes * 60 * 1000);
+  const isFuture = startsAt > now;
 
-  if (!quiz) return <div className="p-6">Loading quiz...</div>;
+  const getButtonLabel = () => {
+    if (quiz.status === "scheduled" && isFuture) return "Scheduled";
+    if (quiz.status === "not_started") return "Start Quiz";
+    if (quiz.status === "ongoing") return "Continue Quiz";
+    if (quiz.status === "completed") return "Review Quiz";
+    return "Unavailable";
+  };
+
+  const isButtonDisabled = () => {
+    return quiz.status === "scheduled" && isFuture;
+  };
+
+  const handleClick = () => {
+    if (quiz.status === "not_started") {
+      navigate(`/attempts/live/${quiz.id}`);
+    } else if (quiz.status === "ongoing") {
+      navigate(`/attempts/live/${quiz.attempt_id}`);
+    } else if (quiz.status === "completed") {
+      navigate(`/attempts/result/${quiz.attempt_id}`);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
@@ -45,18 +57,18 @@ const QuizStart = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mt-2">
             <div className="flex items-center gap-2">
               <Clock10 className="w-4 h-4 text-primary" />
-              <span>{quiz.time_limit} mins</span>
+              <span>{quiz.duration_minutes} mins</span>
             </div>
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-primary" />
               <span>
-                {new Date(quiz.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{" "}
-                {new Date(quiz.ends_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {startsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{" "}
+                {endsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <CircleUser className="w-4 h-4 text-primary" />
-              <span className="capitalize">{quiz.quiz_type}</span>
+              <span className="capitalize">{quiz.quiz_type || "mcq"}</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Tags className="w-4 h-4 text-primary" />
@@ -71,12 +83,22 @@ const QuizStart = () => {
           </div>
 
           <div className="alert alert-info text-xs sm:text-sm mt-4">
-            Once you start the quiz, the timer will begin. Do not refresh or leave.
+            {quiz.status === "not_started"
+              ? "Once you start the quiz, the timer will begin. Do not refresh or leave."
+              : quiz.status === "ongoing"
+              ? "You can resume your quiz attempt."
+              : quiz.status === "completed"
+              ? "You have completed this quiz. View your results."
+              : "This quiz is scheduled to begin soon."}
           </div>
 
           <div className="flex justify-end">
-            <button className="btn btn-primary btn-md sm:btn-md mt-2" onClick={handleStart}>
-              Start Quiz
+            <button
+              className="btn btn-primary btn-md sm:btn-md mt-2"
+              onClick={handleClick}
+              disabled={isButtonDisabled()}
+            >
+              {getButtonLabel()}
             </button>
           </div>
         </div>

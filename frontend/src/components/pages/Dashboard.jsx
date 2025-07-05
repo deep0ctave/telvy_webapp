@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import {
+  Loader2,
+  BookOpen,
+  ClipboardList,
+  UserCircle,
+  Star,
+  Timer,
+  Users,
+  ListChecks,
+  ListTodo,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Loader2, BookOpen, ClipboardList, UserCircle, Star } from 'lucide-react';
 
 const Dashboard = () => {
   const { user: rawUser, loading } = useAuth();
@@ -8,16 +18,25 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    // Mock stats fetch
+    // Mock stats fetch — replace with real API calls later
     setTimeout(() => {
       setStats({
-        quizzesCreated: 5,
-        questionsAdded: 20,
-        attemptsMade: 8,
-        averageScore: 84,
-        rating: 4.2,
+        quizzesCreated: 6,
+        questionsAdded: 42,
+        studentsAttempted: 87,
+
+        attemptsMade: 12,
+        questionsAttempted: 75,
+        averageScore: 82,
+        timeSpent: '3h 45m',
+
+        totalUsers: 250,
+        totalStudents: 180,
+        totalTeachers: 70,
+        totalQuestions: 420,
+        totalQuizzes: 98,
       });
-    }, 600);
+    }, 500);
   }, []);
 
   const isStudent = user?.user_type === 'student';
@@ -32,6 +51,18 @@ const Dashboard = () => {
     );
   }
 
+  const StatCard = ({ icon: Icon, label, value, color = 'text-primary' }) => (
+    <div className="card bg-base-200 shadow-md">
+      <div className="card-body flex items-center gap-4">
+        <Icon className={`w-8 h-8 ${color}`} />
+        <div>
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-xl font-semibold">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       {/* Profile Card */}
@@ -44,77 +75,48 @@ const Dashboard = () => {
           </div>
           <div className="flex-1 space-y-1 text-center md:text-left">
             <h2 className="text-2xl font-bold">{user.name}</h2>
-            <p className="text-sm opacity-80">{user.username} • {user.email}</p>
-            {user.user_type === 'student' && (
+            <p className="text-sm opacity-80">
+              {user.username} • {user.email}
+            </p>
+            {isStudent && (
               <p className="text-sm text-gray-500">
                 {user.school} • Class {user.class} - {user.section}
               </p>
             )}
-            <span className="badge badge-outline capitalize mt-2">{user.user_type}</span>
+            <span className="badge badge-outline capitalize mt-2">
+              {user.user_type}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isTeacher && (
-          <div className="card bg-base-200 shadow-md">
-            <div className="card-body flex items-center gap-4">
-              <BookOpen className="w-8 h-8 text-primary" />
-              <div>
-                <p className="text-sm text-gray-500">Quizzes Created</p>
-                <p className="text-xl font-semibold">{stats.quizzesCreated}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isTeacher && (
-          <div className="card bg-base-200 shadow-md">
-            <div className="card-body flex items-center gap-4">
-              <ClipboardList className="w-8 h-8 text-success" />
-              <div>
-                <p className="text-sm text-gray-500">Questions Added</p>
-                <p className="text-xl font-semibold">{stats.questionsAdded}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {(isStudent || isAdmin) && (
-          <div className="card bg-base-200 shadow-md">
-            <div className="card-body flex items-center gap-4">
-              <UserCircle className="w-8 h-8 text-info" />
-              <div>
-                <p className="text-sm text-gray-500">Quiz Attempts</p>
-                <p className="text-xl font-semibold">{stats.attemptsMade}</p>
-              </div>
-            </div>
-          </div>
+          <>
+            <StatCard icon={BookOpen} label="Quizzes Created" value={stats.quizzesCreated} />
+            <StatCard icon={ClipboardList} label="Questions Added" value={stats.questionsAdded} color="text-success" />
+            <StatCard icon={Users} label="Students Attempted" value={stats.studentsAttempted} color="text-warning" />
+          </>
         )}
 
         {isStudent && (
-          <div className="card bg-base-200 shadow-md">
-            <div className="card-body flex items-center gap-4">
-              <Star className="w-8 h-8 text-yellow-500" />
-              <div>
-                <p className="text-sm text-gray-500">Avg. Score</p>
-                <p className="text-xl font-semibold">{stats.averageScore}%</p>
-              </div>
-            </div>
-          </div>
+          <>
+            <StatCard icon={UserCircle} label="Quiz Attempts" value={stats.attemptsMade} color="text-info" />
+            <StatCard icon={ListChecks} label="Questions Attempted" value={stats.questionsAttempted} color="text-success" />
+            <StatCard icon={Star} label="Success Rate" value={`${stats.averageScore}%`} color="text-yellow-500" />
+            <StatCard icon={Timer} label="Time Spent" value={stats.timeSpent} color="text-purple-500" />
+          </>
         )}
 
-        {isStudent && (
-          <div className="card bg-base-200 shadow-md">
-            <div className="card-body flex items-center gap-4">
-              <Star className="w-8 h-8 text-warning" />
-              <div>
-                <p className="text-sm text-gray-500">Rating</p>
-                <p className="text-xl font-semibold">{stats.rating} / 5</p>
-              </div>
-            </div>
-          </div>
+        {isAdmin && (
+          <>
+            <StatCard icon={Users} label="Total Users" value={stats.totalUsers} />
+            <StatCard icon={UserCircle} label="Total Students" value={stats.totalStudents} color="text-info" />
+            <StatCard icon={UserCircle} label="Total Teachers" value={stats.totalTeachers} color="text-accent" />
+            <StatCard icon={ListTodo} label="Total Questions" value={stats.totalQuestions} color="text-success" />
+            <StatCard icon={BookOpen} label="Total Quizzes" value={stats.totalQuizzes} color="text-warning" />
+          </>
         )}
       </div>
     </div>

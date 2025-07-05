@@ -1,14 +1,21 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const PrivateRoute = ({ children }) => {
- const { isAuthenticated, user, loading } = useAuth(); // ✅ include user if you want to log it
+const PrivateRoute = ({ children, allowedRoles }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+  const actualUser = user?.user || user; // Normalize shape
 
-if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="p-6 text-center">Loading...</div>;
 
-console.log("Auth State →", { isAuthenticated, user });
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-return isAuthenticated ? children : <Navigate to="/login" />;
+  if (allowedRoles && !allowedRoles.includes(actualUser?.user_type)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  return children;
 };
 
 export default PrivateRoute;

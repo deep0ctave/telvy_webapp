@@ -7,8 +7,9 @@ const getLinkClasses = ({ isActive }) =>
   }`;
 
 function DrawerSidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const actualUser = user?.user || user;
 
   const handleLogout = async () => {
     try {
@@ -23,7 +24,6 @@ function DrawerSidebar() {
     <div className="drawer-side z-40">
       <label htmlFor="drawer" className="drawer-overlay" />
       <aside className="min-h-screen w-80 bg-base-100 flex flex-col">
-        {/* Logo */}
         <div className="sticky top-0 z-20 flex items-center gap-2 p-4 backdrop-blur">
           <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
@@ -31,35 +31,35 @@ function DrawerSidebar() {
           <span className="font-bold text-lg">Telvy</span>
         </div>
 
-        {/* Menu */}
-        <ul className="menu px-4 py-2 w-full flex-1">
-          <li>
-            <NavLink to="/dashboard" className={getLinkClasses}>Dashboard</NavLink>
-          </li>
-          <li>
-            <NavLink to="/quizzes" className={getLinkClasses}>Quizzes</NavLink>
-          </li>
-          <li>
-            <NavLink to="/attempts" className={getLinkClasses}>Browse Quizzes</NavLink>
-          </li>
-          <li>
-            <NavLink to="/attempts/history" className={getLinkClasses}>Attempt History</NavLink>
-          </li>
-          <li>
-            <NavLink to="/settings" className={getLinkClasses}>Settings</NavLink>
-          </li>
-          <li>
-            <NavLink to="/attempts/start/:quizId" className={getLinkClasses}>Start Quiz</NavLink>
-          </li>
-          <li>
-            <NavLink to="/attempts/live/:attemptId" className={getLinkClasses}>Ongoing Attempt</NavLink>
-          </li>
-          <li>
-            <NavLink to="/attempts/result/:attemptId" className={getLinkClasses}>Attempt Result</NavLink>
-          </li>
+        <ul className="menu px-4 py-2 w-full flex-1 space-y-1">
+          <li><NavLink to="/dashboard" className={getLinkClasses}>Dashboard</NavLink></li>
+
+          {actualUser?.user_type === 'student' && (
+            <>
+              <li><NavLink to="/student/quizzes" className={getLinkClasses}>Quizzes</NavLink></li>
+              <li><NavLink to="/student/stats" className={getLinkClasses}>My Stats</NavLink></li>
+              <li><NavLink to="/student/leaderboard" className={getLinkClasses}>Leaderboard</NavLink></li>
+            </>
+          )}
+
+          {actualUser?.user_type === 'teacher' && (
+            <>
+              <li><NavLink to="/admin/quizzes" className={getLinkClasses}>Manage Quizzes</NavLink></li>
+              <li><NavLink to="/admin/questions" className={getLinkClasses}>Question Pool</NavLink></li>
+            </>
+          )}
+
+          {actualUser?.user_type === 'admin' && (
+            <>
+              <li><NavLink to="/admin/users" className={getLinkClasses}>Manage Users</NavLink></li>
+              <li><NavLink to="/admin/quizzes" className={getLinkClasses}>Manage Quizzes</NavLink></li>
+              <li><NavLink to="/admin/questions" className={getLinkClasses}>Question Pool</NavLink></li>
+            </>
+          )}
+
+          <li><NavLink to="/settings" className={getLinkClasses}>Settings</NavLink></li>
         </ul>
 
-        {/* Logout at bottom */}
         <div className="p-4 mt-auto">
           <button onClick={handleLogout} className="btn btn-error btn-outline w-full">
             Logout

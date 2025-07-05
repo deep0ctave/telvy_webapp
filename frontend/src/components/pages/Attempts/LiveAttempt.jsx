@@ -1,5 +1,6 @@
+// File: components/pages/Student/LiveAttempt.jsx
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 const mockQuestions = [
   {
@@ -24,12 +25,15 @@ const mockQuestions = [
 
 const LiveAttempt = () => {
   const { attemptId } = useParams();
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(900); // 15 min
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
+    // Simulate fetch
     setQuestions(mockQuestions);
 
     const interval = setInterval(() => {
@@ -50,13 +54,31 @@ const LiveAttempt = () => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  const submitToBackend = async () => {
+    try {
+      const res = await fetch(`/api/attempts/${attemptId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      if (res.ok) {
+        navigate(`/attempts/result/${attemptId}`);
+      } else {
+        alert("Submission failed.");
+      }
+    } catch (err) {
+      console.error("Submission error:", err);
+      alert("Submission failed due to network error.");
+    }
+  };
+
   const handleSubmit = () => {
-    alert("Quiz submitted!");
-    // You can navigate or save here
+    setShowConfirmModal(false);
+    submitToBackend();
   };
 
   const currentQuestion = questions[currentQuestionIndex];
-  const progressPercent = ((300 - timeLeft) / 300) * 100;
+  const progressPercent = ((900 - timeLeft) / 900) * 100;
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60).toString().padStart(2, "0");
@@ -66,6 +88,24 @@ const LiveAttempt = () => {
 
   return (
     <div className="p-6">
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <dialog open className="modal modal-bottom sm:modal-middle">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">Submit Quiz?</h3>
+            <p className="py-4">Are you sure you want to submit your answers?</p>
+            <div className="modal-action">
+              <button className="btn btn-outline" onClick={() => setShowConfirmModal(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSubmit}>
+                Confirm Submit
+              </button>
+            </div>
+          </div>
+        </dialog>
+      )}
+
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Question panel */}
         <div className="flex-1 space-y-4">
@@ -87,7 +127,6 @@ const LiveAttempt = () => {
               <p className="text-lg">{currentQuestion?.question_text}</p>
 
               <div className="space-y-2">
-                {/* MCQ or True/False options */}
                 {(currentQuestion?.question_type === "mcq" ||
                   currentQuestion?.question_type === "true_false") &&
                   (currentQuestion.options || []).map((opt, idx) => (
@@ -95,7 +134,7 @@ const LiveAttempt = () => {
                       key={idx}
                       className={`flex items-center gap-3 px-3 py-2 rounded border cursor-pointer ${
                         answers[currentQuestion.id] === opt
-                          ? "border-primary"
+                          ? "border-primary bg-base-100"
                           : "border-base-300"
                       }`}
                     >
@@ -110,7 +149,6 @@ const LiveAttempt = () => {
                     </label>
                   ))}
 
-                {/* Type-in */}
                 {currentQuestion?.question_type === "type_in" && (
                   <input
                     type="text"
@@ -136,7 +174,10 @@ const LiveAttempt = () => {
             </button>
 
             {currentQuestionIndex === questions.length - 1 ? (
-              <button className="btn btn-primary" onClick={handleSubmit}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowConfirmModal(true)}
+              >
                 Submit Quiz
               </button>
             ) : (
