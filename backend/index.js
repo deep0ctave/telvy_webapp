@@ -13,6 +13,7 @@ const miscRoutes = require('./routes/miscRoutes');
 
 const errorHandler = require('./middlewares/errorHandler');
 
+
 dotenv.config(); // Load environment variables
 
 const app = express();

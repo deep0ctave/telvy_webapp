@@ -73,6 +73,18 @@ api.interceptors.response.use(
   }
 );
 
+
+export const fetchSchoolSuggestions = async (query) => {
+  if (!query.trim()) return [];
+  try {
+    const res = await api.get(`/misc/schools?q=${encodeURIComponent(query)}`);
+    return res.data.schools || [];
+  } catch (err) {
+    console.error('School fetch error:', err);
+    return [];
+  }
+};
+
 // ✅ Log all requests
 api.interceptors.request.use((config) => {
   console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data || {});

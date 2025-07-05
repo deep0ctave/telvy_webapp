@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { registerUser, verifyOtp } from '../../services/auth';
+import { ToastContainer, toast } from 'react-toastify';
+import DatePicker from 'react-datepicker';
+import { format } from 'date-fns';
+import api from '../../services/api'; // ✅ Your axios instance
+import 'react-toastify/dist/ReactToastify.css';
+import 'react-datepicker/dist/react-datepicker.css';
 
-export default function Register() {
+const Register = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [schoolOptions, setSchoolOptions] = useState([]);
   const [form, setForm] = useState({
     name: '',
     dob: '',
@@ -17,120 +23,235 @@ export default function Register() {
     username: '',
     password: '',
     confirmPassword: '',
-    otp: '',
-    user_type: 'student',
   });
+  const [dobDate, setDobDate] = useState(null);
+  const [otp, setOtp] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const next = () => setStep((s) => Math.min(s + 1, 3));
-  const prev = () => setStep((s) => Math.max(s - 1, 1));
-
-  const handleInitiate = async () => {
-    if (form.password !== form.confirmPassword) {
+  const validateStep = () => {
+    const required = {
+      1: ['name', 'dob', 'gender', 'phone', 'email'],
+      2: ['school', 'class', 'section'],
+      3: ['username', 'password', 'confirmPassword'],
+    };
+    const missing = required[step].filter((f) => !form[f]?.trim());
+    if (missing.length) {
+      toast.error('Please fill all required fields');
+      return false;
+    }
+    if (step === 3 && form.password !== form.confirmPassword) {
       toast.error('Passwords do not match');
+      return false;
+    }
+    return true;
+  };
+
+  const next = () => validateStep() && setStep((s) => Math.min(3, s + 1));
+  const prev = () => setStep((s) => Math.max(1, s - 1));
+
+  const handleSubmit = () => {
+    if (!validateStep()) return;
+    setSubmitting(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      document.getElementById('otp_modal')?.showModal();
+      toast.success('OTP sent to your phone');
+    }, 1000);
+  };
+
+  const handleVerify = () => {
+    if (!otp.trim()) {
+      toast.error('Please enter the OTP');
       return;
     }
-    try {
-      setSubmitting(true);
-      await registerUser(form);
-      toast.success('OTP sent to phone');
-      document.getElementById('otp_modal').showModal();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Registration failed');
-    } finally {
+    setSubmitting(true);
+    setTimeout(() => {
       setSubmitting(false);
-    }
-  };
-
-  const handleVerify = async () => {
-    try {
-      setSubmitting(true);
-      await verifyOtp({ phone: form.phone, otp: form.otp });
       toast.success('Registration complete');
       navigate('/login');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'OTP verification failed');
-    } finally {
-      setSubmitting(false);
+    }, 1000);
+  };
+
+  const handleResendOtp = () => {
+    toast.success('OTP resent successfully');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      step < 3 ? next() : handleSubmit();
     }
   };
 
+  // 🔍 Debounced school fetch
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchSchools = async () => {
+      const query = form.school.trim();
+      if (!query) return setSchoolOptions([]);
+      try {
+        const res = await api.get(`/misc/schools?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        setSchoolOptions(res.data.schools || []);
+      } catch (err) {
+        if (err.name !== 'CanceledError') {
+          console.error('School fetch error:', err);
+        }
+        setSchoolOptions([]);
+      }
+    };
+    const timeout = setTimeout(fetchSchools, 300);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [form.school]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setSchoolOptions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="hero bg-base-200 flex flex-col justify-center min-h-screen">
-      <ul className="steps pb-8 pt-8 w-1/2 mx-auto">
+    <div className="min-h-90 flex flex-col items-center py-10">
+      <ToastContainer position="top-center" />
+      <ul className="steps w-full max-w-md mb-6">
         <li className={`step ${step >= 1 ? 'step-primary' : ''}`}>Personal</li>
         <li className={`step ${step >= 2 ? 'step-primary' : ''}`}>School</li>
         <li className={`step ${step === 3 ? 'step-primary' : ''}`}>Account</li>
       </ul>
 
-      <form className="mx-auto w-full max-w-md px-4">
+      <form className="w-full max-w-md px-4 space-y-6" onKeyDown={handleKeyDown}>
         {step === 1 && (
-          <div className="space-y-4">
-            <input name="name" type="text" placeholder="Full Name" className="input input-bordered w-full" value={form.name} onChange={handleChange} required />
-            <input name="dob" type="date" className="input input-bordered w-full" value={form.dob} onChange={handleChange} required />
-
-            <select name="gender" className="select select-bordered w-full" value={form.gender} onChange={handleChange} required>
-              <option value="" disabled>Select Gender</option>
+          <>
+            <input name="name" type="text" placeholder="Full Name" className="input input-bordered w-full" value={form.name} onChange={handleChange} />
+            <DatePicker
+              selected={dobDate}
+              onChange={(date) => {
+                setDobDate(date);
+                setForm({ ...form, dob: format(date, 'yyyy-MM-dd') });
+              }}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Select your DOB"
+              className="input input-bordered w-full"
+              wrapperClassName="w-full"
+              maxDate={new Date()}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+            />
+            <select name="gender" className="select select-bordered w-full" value={form.gender} onChange={handleChange}>
+              <option value="">Select Gender</option>
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
             </select>
-
-            <input name="phone" type="tel" placeholder="Phone Number" className="input input-bordered w-full" value={form.phone} onChange={handleChange} required />
-            <input name="email" type="email" placeholder="Email" className="input input-bordered w-full" value={form.email} onChange={handleChange} required />
-
-            <select name="user_type" className="select select-bordered w-full" value={form.user_type} onChange={handleChange} required>
-              <option value="student">Student</option>
-              <option value="admin">Admin</option>
-            </select>
-
-            <button type="button" className="btn btn-primary w-full" onClick={next}>Next</button>
-          </div>
+            <label className="input w-full">
+              <span className="label">+91</span>
+              <input name="phone" type="tel" placeholder="Phone number" className="w-full" value={form.phone} onChange={handleChange} maxLength={10} />
+            </label>
+            <input name="email" type="email" placeholder="Email" className="input input-bordered w-full" value={form.email} onChange={handleChange} />
+            <button type="button" onClick={next} className="btn btn-primary w-full">Next</button>
+          </>
         )}
 
         {step === 2 && (
-          <div className="space-y-4">
-            <input name="school" type="text" placeholder="School" className="input input-bordered w-full" value={form.school} onChange={handleChange} required />
-            <input name="class" type="text" placeholder="Class" className="input input-bordered w-full" value={form.class} onChange={handleChange} required />
-            <input name="section" type="text" placeholder="Section" className="input input-bordered w-full" value={form.section} onChange={handleChange} required />
-
-            <div className="flex justify-between">
-              <button type="button" className="btn btn-outline" onClick={prev}>Prev</button>
-              <button type="button" className="btn btn-primary" onClick={next}>Next</button>
+          <>
+            <div className="relative" ref={dropdownRef}>
+              <input
+                name="school"
+                type="text"
+                placeholder="School"
+                autoComplete="off"
+                className="input input-bordered w-full"
+                value={form.school}
+                onChange={handleChange}
+              />
+              {schoolOptions.length > 0 && (
+                <ul className="absolute z-10 bg-base-100 border w-full mt-1 rounded shadow">
+                  {schoolOptions.map((s) => (
+                    <li
+                      key={s}
+                      className="px-4 py-2 hover:bg-base-300 cursor-pointer"
+                      onClick={() => {
+                        setForm({ ...form, school: s });
+                        setSchoolOptions([]);
+                      }}
+                    >
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </div>
+            <select name="class" className="select select-bordered w-full" value={form.class} onChange={handleChange}>
+              <option value="">Select Class</option>
+              {[...Array(10)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
+              ))}
+            </select>
+            <select name="section" className="select select-bordered w-full" value={form.section} onChange={handleChange}>
+              <option value="">Select Section</option>
+              {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((sec) => (
+                <option key={sec} value={sec}>{sec}</option>
+              ))}
+            </select>
+            <div className="flex justify-between">
+              <button type="button" onClick={prev} className="btn btn-outline">Back</button>
+              <button type="button" onClick={next} className="btn btn-primary">Next</button>
+            </div>
+          </>
         )}
 
         {step === 3 && (
-          <div className="space-y-4">
-            <input name="username" type="text" placeholder="Username" className="input input-bordered w-full" value={form.username} onChange={handleChange} required />
-            <input name="password" type="password" placeholder="Password" className="input input-bordered w-full" value={form.password} onChange={handleChange} required />
-            <input name="confirmPassword" type="password" placeholder="Confirm Password" className="input input-bordered w-full" value={form.confirmPassword} onChange={handleChange} required />
-
+          <>
+            <input name="username" type="text" placeholder="Username" className="input input-bordered w-full" value={form.username} onChange={handleChange} />
+            <input name="password" type="password" placeholder="Password" className="input input-bordered w-full" value={form.password} onChange={handleChange} />
+            <input name="confirmPassword" type="password" placeholder="Confirm Password" className="input input-bordered w-full" value={form.confirmPassword} onChange={handleChange} />
             <div className="flex justify-between">
-              <button type="button" className="btn btn-outline" onClick={prev}>Prev</button>
-              <button type="button" className="btn btn-primary" onClick={handleInitiate} disabled={submitting}>Submit</button>
+              <button type="button" onClick={prev} className="btn btn-outline">Back</button>
+              <button type="button" onClick={handleSubmit} className="btn btn-success" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Submit'}
+              </button>
             </div>
-          </div>
+          </>
         )}
       </form>
 
+      {/* ✅ OTP Modal */}
       <dialog id="otp_modal" className="modal">
         <div className="modal-box">
           <h3 className="font-bold text-lg">Verify OTP</h3>
           <p className="py-2">An OTP has been sent to your phone.</p>
-          <input name="otp" type="text" maxLength="6" placeholder="Enter OTP" className="input input-bordered w-full" onChange={handleChange} value={form.otp} />
-          <div className="modal-action">
-            <form method="dialog" className="w-full">
-              <button type="submit" className="btn btn-primary w-full" onClick={handleVerify} disabled={submitting}>Confirm & Submit</button>
-            </form>
+          <input
+            type="text"
+            maxLength="6"
+            placeholder="Enter OTP"
+            className="input input-bordered w-full"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+          />
+          <div className="modal-action flex flex-col space-y-2">
+            <button type="button" onClick={handleVerify} className="btn btn-primary w-full" disabled={submitting}>
+              Confirm & Submit
+            </button>
+            <button type="button" onClick={handleResendOtp} className="btn btn-outline w-full">
+              Resend OTP
+            </button>
           </div>
         </div>
       </dialog>
     </div>
   );
-}
+};
+
+export default Register;

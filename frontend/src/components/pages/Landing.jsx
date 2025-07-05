@@ -83,13 +83,18 @@ function LandingPage() {
           Play. Learn. Compete. The smarter way to quiz.
         </p>
 
-        <div className="mt-10">
-          <a href="/login">
-            <button className="btn btn-primary text-lg px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform">
-              Login
-            </button>
-          </a>
-        </div>
+              <div className="mt-10 flex gap-4 justify-center">
+        <a href="/login">
+          <button className="btn btn-primary text-lg px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform">
+            Login
+          </button>
+        </a>
+        <a href="/register">
+          <button className="btn btn-outline text-lg px-8 py-3 rounded-full hover:scale-105 transition-transform">
+            Register
+          </button>
+        </a>
+      </div>
       </div>
     </div>
   );

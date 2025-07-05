@@ -55,3 +55,8 @@ export const verifyOtp = async ({ phone, otp }) => {
   const res = await api.post('/auth/register/verify-otp', { phone, otp });
   return res.data;
 };
+
+export const resendOtp = async (phone) => {
+  const res = await api.post('/auth/register/resend', { phone });
+  return res.data;
+};
