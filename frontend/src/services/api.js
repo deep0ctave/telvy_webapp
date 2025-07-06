@@ -97,6 +97,34 @@ export const updateFullQuiz = (quizId, payload) =>
 export const deleteFullQuiz = (quizId, withQuestions = false) =>
   api.delete(`/full-quizzes/${quizId}?deleteQuestions=${withQuestions}`);
 
+// 🔹 Create user
+export const createUser = async (data) => {
+  return api.post('/users', data); // You may need to hit /users/admin or adjust the path if required
+};
+
+// 🔸 Get all users
+export const getAllUsers = async () => {
+  const res = await api.get('/users');
+  return res.data.users;
+};
+
+// 🔸 Get a single user
+export const getUserById = async (id) => {
+  const res = await api.get(`/users/${id}`);
+  return res.data.user;
+};
+
+// ✏️ Update user (admin)
+export const updateUserById = async (id, data) => {
+  return api.put(`/users/${id}`, data);
+};
+
+// ❌ Delete user
+export const deleteUserById = async (id) => {
+  return api.delete(`/users/${id}`);
+};
+
+
 // ✅ Log all requests
 api.interceptors.request.use((config) => {
   console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data || {});

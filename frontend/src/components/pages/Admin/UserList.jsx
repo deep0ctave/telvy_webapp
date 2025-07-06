@@ -1,46 +1,22 @@
+// File: components/pages/Admin/UserList.jsx
 import React, { useState, useEffect } from "react";
 import { Pencil, Trash2, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import CreateUserModal from "./CreateUserModal";
 import EditUserModal from "./EditUserModal";
-
-const mockUsers = [
-  {
-    id: 1,
-    username: "aryan",
-    name: "Aryan Sharma",
-    phone: "1234567890",
-    user_type: "student",
-    school: "XYZ Public School",
-    class: "10",
-    section: "C",
-  },
-  {
-    id: 2,
-    username: "teacher01",
-    name: "Meera Singh",
-    phone: "9876543210",
-    user_type: "teacher",
-    school: "ABC School",
-    class: "12",
-    section: "A",
-  },
-  {
-    id: 3,
-    username: "adminboss",
-    name: "Super Admin",
-    phone: "9999999999",
-    user_type: "admin",
-    school: "System",
-    class: "",
-    section: "",
-  },
-];
+import DeleteUserModal from "./DeleteUserModal";
+import {
+  getAllUsers,
+  createUser,
+  updateUserById,
+  deleteUserById,
+} from "../../../services/api"; // adjust path if needed
 
 const UserList = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [search, setSearch] = useState("");
   const [advancedSearch, setAdvancedSearch] = useState(false);
@@ -54,10 +30,16 @@ const UserList = () => {
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
 
   useEffect(() => {
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
-    }, 300);
+    const fetchUsers = async () => {
+      try {
+        const usersFromServer = await getAllUsers();
+        setUsers(usersFromServer);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
   useEffect(() => {
@@ -114,10 +96,14 @@ const UserList = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    const confirm = window.confirm("Are you sure you want to delete this user?");
-    if (confirm) {
+  const handleDelete = async (id) => {
+    try {
+      await deleteUserById(id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
+      setShowDeleteModal(false);
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete user.");
     }
   };
 
@@ -145,7 +131,7 @@ const UserList = () => {
 
       {advancedSearch && (
         <div className="grid md:grid-cols-3 gap-4 bg-base-200 p-4 rounded-md">
-          {["school", "user_type", "name", "class", "section"].map((field) => (
+          {Object.keys(filters).map((field) => (
             <input
               key={field}
               type="text"
@@ -215,7 +201,10 @@ const UserList = () => {
                     </button>
                     <button
                       className="btn btn-sm btn-error"
-                      onClick={() => handleDelete(user.id)}
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowDeleteModal(true);
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -230,9 +219,15 @@ const UserList = () => {
       {showCreateModal && (
         <CreateUserModal
           onClose={() => setShowCreateModal(false)}
-          onCreate={(newUser) => {
-            setUsers((prev) => [...prev, { id: Date.now(), ...newUser }]);
-            setShowCreateModal(false);
+          onCreate={async (newUser) => {
+            try {
+              const res = await createUser(newUser);
+              setUsers((prev) => [...prev, res.user]);
+              setShowCreateModal(false);
+            } catch (err) {
+              console.error("Create failed:", err);
+              alert("Failed to create user");
+            }
           }}
         />
       )}
@@ -244,12 +239,27 @@ const UserList = () => {
             setShowEditModal(false);
             setSelectedUser(null);
           }}
-          onSave={(updated) => {
-            setUsers((prev) =>
-              prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
-            );
-            setShowEditModal(false);
+          onSave={async (updated) => {
+            try {
+              await updateUserById(selectedUser.id, updated);
+              setUsers((prev) =>
+                prev.map((u) => (u.id === selectedUser.id ? { ...u, ...updated } : u))
+              );
+              setShowEditModal(false);
+            } catch (err) {
+              console.error("Update failed:", err);
+              alert("Failed to update user");
+            }
           }}
+        />
+      )}
+
+      {showDeleteModal && selectedUser && (
+        <DeleteUserModal
+          isOpen={true}
+          user={selectedUser}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDelete}
         />
       )}
     </div>

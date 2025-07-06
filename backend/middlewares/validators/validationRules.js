@@ -78,6 +78,7 @@ const resendOtpValidation = [
 const profileUpdateValidation = [
   body('username').not().exists().withMessage('Username cannot be changed'),
   body('user_type').not().exists().withMessage('User type cannot be changed'),
+  body('is_verified').not().exists().withMessage('Verification status cannot be changed'),
 
   body('email').optional().isEmail().normalizeEmail(),
   body('phone')
@@ -85,21 +86,44 @@ const profileUpdateValidation = [
     .isMobilePhone().withMessage('Invalid phone number')
     .notEmpty().withMessage('Phone number cannot be empty'),
 
-  body('new_password').optional(),
-  body('old_password')
-    .if(body('new_password').exists())
-    .notEmpty().withMessage('Old password required'),
-
   body('current_password')
     .notEmpty().withMessage('Current password is required'),
 
+  body('new_password').optional(),
+  body('old_password')
+    .if(body('new_password').exists())
+    .notEmpty().withMessage('Old password is required'),
+
   body('name').optional().trim().notEmpty(),
   body('gender').optional().isIn(['male', 'female', 'other']),
-  body('dob').optional().isISO8601(),
+  body('dob').optional().isISO8601().withMessage('Invalid date format'),
   body('school').optional().notEmpty(),
   body('class').optional().notEmpty(),
   body('section').optional().notEmpty(),
 ];
+
+
+const adminUserUpdateValidation = [
+  body('username').not().exists().withMessage('Username cannot be updated'),
+  body('password').not().exists().withMessage('Password cannot be updated here'),
+  body('current_password').not().exists(),
+  body('old_password').not().exists(),
+  body('new_password').not().exists(),
+
+  body('name').optional().trim().notEmpty(),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('phone').optional().isMobilePhone().withMessage('Invalid phone number'),
+  body('user_type').optional().isIn(['student', 'teacher', 'admin']),
+  body('is_verified').optional().isBoolean(),
+
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('dob').optional().isISO8601().withMessage('Invalid date format'),
+  body('school').optional().notEmpty(),
+  body('class').optional().notEmpty(),
+  body('section').optional().notEmpty(),
+];
+
+
 
 
 // 🔸 Questions
@@ -133,5 +157,7 @@ module.exports = {
   forgotPasswordVerifyValidation,
   resendOtpValidation,
   profileUpdateValidation,
+  adminUserUpdateValidation,
   questionValidationRules,
 };
+
