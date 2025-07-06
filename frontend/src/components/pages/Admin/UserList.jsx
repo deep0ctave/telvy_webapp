@@ -1,85 +1,91 @@
-// File: components/pages/Admin/QuizList.jsx
-import React, { useEffect, useState } from "react";
+// File: components/pages/Admin/UserList.jsx
+
+import React, { useState, useEffect } from "react";
 import { Pencil, Trash2, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import CreateUserModal from "./CreateUserModal";
+import EditUserModal from "./EditUserModal";
+import DeleteUserModal from "./DeleteUserModal";
 import {
-  getAllFullQuizzes,
-  deleteFullQuiz,
+  getAllUsers,
+  createUser,
+  updateUserById,
+  deleteUserById,
 } from "../../../services/api";
-import CreateQuizModal from "./CreateQuizModal";
-import EditQuizModal from "./EditQuizModal";
-import DeleteQuizModal from "./DeleteQuizModal";
 import { toast } from "react-toastify";
 
-const QuizList = () => {
-  const [quizzes, setQuizzes] = useState([]);
-  const [filteredQuizzes, setFilteredQuizzes] = useState([]);
+const UserList = () => {
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [search, setSearch] = useState("");
+  const [advancedSearch, setAdvancedSearch] = useState(false);
   const [filters, setFilters] = useState({
-    title: "",
-    quiz_type: "",
-    tags: "",
-    time_limit: "",
+    name: "",
+    username: "",
+    class: "",
+    section: "",
+    school: "",
+    user_type: "",
   });
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
-  const [advancedSearch, setAdvancedSearch] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    fetchQuizzes();
+    fetchUsers();
   }, []);
 
   useEffect(() => {
-    filterAndSort();
-  }, [search, filters, sortConfig, quizzes]);
+    filterAndSortUsers();
+  }, [search, filters, sortConfig, users]);
 
-  const fetchQuizzes = async () => {
+  const fetchUsers = async () => {
     try {
-      const data = await getAllFullQuizzes();
-      setQuizzes(data);
+      const res = await getAllUsers();
+      setUsers(res);
     } catch (err) {
-      toast.error("Failed to fetch quizzes");
+      toast.error("Failed to fetch users");
     }
   };
 
-  const filterAndSort = () => {
-    let data = [...quizzes];
+  const filterAndSortUsers = () => {
+    let data = [...users];
 
     if (search.trim()) {
-      const lower = search.toLowerCase();
+      const s = search.toLowerCase();
       data = data.filter(
-        (q) =>
-          q.title?.toLowerCase().includes(lower) ||
-          q.description?.toLowerCase().includes(lower)
+        (u) =>
+          u.name?.toLowerCase().includes(s) ||
+          u.username?.toLowerCase().includes(s) ||
+          u.phone?.includes(s)
       );
     }
 
     if (advancedSearch) {
-      Object.entries(filters).forEach(([key, val]) => {
-        if (val.trim()) {
-          const lowerVal = val.toLowerCase();
-          data = data.filter((q) =>
-            (q[key] || "").toString().toLowerCase().includes(lowerVal)
+      for (const key in filters) {
+        const val = filters[key].trim().toLowerCase();
+        if (val) {
+          data = data.filter((u) =>
+            u[key]?.toLowerCase().includes(val)
           );
         }
-      });
+      }
     }
 
     if (sortConfig.key) {
       const { key, direction } = sortConfig;
       data.sort((a, b) => {
-        const aVal = a[key]?.toString().toLowerCase() || "";
-        const bVal = b[key]?.toString().toLowerCase() || "";
+        const aVal = a[key]?.toLowerCase?.() || "";
+        const bVal = b[key]?.toLowerCase?.() || "";
         return direction === "asc"
           ? aVal.localeCompare(bVal)
           : bVal.localeCompare(aVal);
       });
     }
 
-    setFilteredQuizzes(data);
+    setFilteredUsers(data);
   };
 
   const toggleSort = (key) => {
@@ -91,22 +97,25 @@ const QuizList = () => {
 
   const handleDelete = async () => {
     try {
-      await deleteFullQuiz(selectedQuiz.id);
-      setQuizzes((prev) => prev.filter((q) => q.id !== selectedQuiz.id));
-      toast.success("Quiz deleted");
+      await deleteUserById(selectedUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
+      toast.success("User deleted");
       setShowDelete(false);
     } catch (err) {
-      toast.error("Failed to delete quiz");
+      toast.error("Failed to delete user");
     }
   };
 
-  const badgeColor = (type) =>
-    type === "scheduled" ? "badge-secondary" : "badge-accent";
+  const badgeColor = (type) => {
+    if (type === "admin") return "badge-neutral";
+    if (type === "teacher") return "badge-primary";
+    return "badge-accent";
+  };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold">Manage Quizzes</h1>
+        <h1 className="text-2xl font-bold">Manage Users</h1>
         <div className="flex gap-2">
           <button
             className="btn btn-outline"
@@ -115,7 +124,7 @@ const QuizList = () => {
             <Filter className="w-4 h-4" /> Advanced Search
           </button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + Create Quiz
+            + Create User
           </button>
         </div>
       </div>
@@ -123,7 +132,7 @@ const QuizList = () => {
       <input
         type="text"
         className="input input-bordered w-full max-w-md"
-        placeholder="Search by title or description..."
+        placeholder="Search by name, username, or phone..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -149,14 +158,19 @@ const QuizList = () => {
         <table className="table table-zebra w-full">
           <thead>
             <tr>
-              {["title", "quiz_type", "tags", "time_limit", "created_at"].map((col) => (
-                <th
-                  key={col}
-                  onClick={() => toggleSort(col)}
-                  className="cursor-pointer"
-                >
+              {[
+                "username",
+                "name",
+                "phone",
+                "user_type",
+                "school",
+                "class",
+                "section",
+                "dob",
+              ].map((col) => (
+                <th key={col} onClick={() => toggleSort(col)} className="cursor-pointer">
                   <div className="flex items-center gap-1 capitalize">
-                    {col.replace("_", " ")}
+                    {col}
                     {sortConfig.key === col &&
                       (sortConfig.direction === "asc" ? (
                         <ChevronUp className="w-4 h-4" />
@@ -170,33 +184,36 @@ const QuizList = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredQuizzes.length === 0 ? (
+            {filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan="99" className="text-center text-base-content/60 py-4">
-                  No matching quizzes found.
+                  No matching users found.
                 </td>
               </tr>
             ) : (
-              filteredQuizzes.map((quiz) => (
-                <tr key={quiz.id}>
-                  <td>{quiz.title}</td>
+              filteredUsers.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.username}</td>
+                  <td>{u.name}</td>
+                  <td>{u.phone}</td>
                   <td>
-                    <span className={`badge ${badgeColor(quiz.quiz_type)}`}>
-                      {quiz.quiz_type}
+                    <span className={`badge ${badgeColor(u.user_type)}`}>
+                      {u.user_type}
                     </span>
                   </td>
-                  <td>{quiz.tags?.join(", ") || "-"}</td>
-                  <td>{quiz.time_limit} sec</td>
+                  <td>{u.school}</td>
+                  <td>{u.class}</td>
+                  <td>{u.section}</td>
                   <td>
-                    {quiz.created_at
-                      ? new Date(quiz.created_at).toLocaleDateString("en-GB")
+                    {u.dob
+                      ? new Date(u.dob).toLocaleDateString("en-GB")
                       : "-"}
                   </td>
                   <td className="flex gap-2">
                     <button
-                      className="btn btn-sm btn-primary"
+                      className="btn btn-sm btn-info"
                       onClick={() => {
-                        setSelectedQuiz(quiz);
+                        setSelectedUser(u);
                         setShowEdit(true);
                       }}
                     >
@@ -205,7 +222,7 @@ const QuizList = () => {
                     <button
                       className="btn btn-sm btn-error"
                       onClick={() => {
-                        setSelectedQuiz(quiz);
+                        setSelectedUser(u);
                         setShowDelete(true);
                       }}
                     >
@@ -220,34 +237,33 @@ const QuizList = () => {
       </div>
 
       {showCreate && (
-        <CreateQuizModal
+        <CreateUserModal
           onClose={() => setShowCreate(false)}
-          onCreate={(created) => {
-            setQuizzes((prev) => [...prev, created]);
-            toast.success("Quiz created");
+          onCreate={(user) => {
+            setUsers((prev) => [...prev, user]);
+            toast.success("User created successfully");
           }}
         />
       )}
 
-      {showEdit && selectedQuiz && (
-        <EditQuizModal
-          quiz={selectedQuiz}
+      {showEdit && selectedUser && (
+        <EditUserModal
+          user={selectedUser}
           onClose={() => {
-            setSelectedQuiz(null);
+            setSelectedUser(null);
             setShowEdit(false);
           }}
           onSave={(updated) => {
-            setQuizzes((prev) =>
-              prev.map((q) => (q.id === updated.id ? updated : q))
+            setUsers((prev) =>
+              prev.map((u) => (u.id === updated.id ? updated : u))
             );
-            toast.success("Quiz updated");
           }}
         />
       )}
 
-      {showDelete && selectedQuiz && (
-        <DeleteQuizModal
-          quiz={selectedQuiz}
+      {showDelete && selectedUser && (
+        <DeleteUserModal
+          user={selectedUser}
           onClose={() => setShowDelete(false)}
           onConfirm={handleDelete}
         />
@@ -256,4 +272,4 @@ const QuizList = () => {
   );
 };
 
-export default QuizList;
+export default UserList;
