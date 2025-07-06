@@ -1,152 +1,212 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
+// components/pages/Admin/EditUserModal.jsx
+import React, { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { toast } from "react-toastify";
+import { fetchSchoolSuggestions, updateUserById } from "../../../services/api";
 
-const EditUserModal = ({ user, onClose, onSave, onBan }) => {
-  const [formData, setFormData] = useState({
-    name: user.name || "",
-    username: user.username || "",
-    phone: user.phone || "",
-    user_type: user.user_type || "student",
-    school: user.school || "",
-    class: user.class || "",
-    section: user.section || "",
-    newPassword: "",
+const classes = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const sections = ["A", "B", "C", "D", "E"];
+const genders = ["male", "female", "other"];
+const userTypes = ["student", "teacher", "admin"];
+
+const EditUserModal = ({ user, onClose, onSave }) => {
+  const [form, setForm] = useState({
+    ...user,
+    dob: user.dob ? new Date(user.dob) : null,
   });
 
-  const [errors, setErrors] = useState({});
+  const [schoolOptions, setSchoolOptions] = useState([]);
 
-  const validate = () => {
-    const err = {};
-    if (!formData.name.trim()) err.name = "Name is required";
-    if (!formData.phone.match(/^\d{10}$/)) err.phone = "Enter a valid 10-digit phone number";
-    if (!formData.user_type) err.user_type = "User type is required";
-    return err;
+  useEffect(() => {
+    if (form.school?.length > 1) handleSchoolSearch(form.school);
+  }, []);
+
+  const handleSchoolSearch = async (q) => {
+    const results = await fetchSchoolSuggestions(q);
+    setSchoolOptions(results);
   };
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    if (name === "school") handleSchoolSearch(value);
   };
 
-  const handleSubmit = () => {
-    const err = validate();
-    if (Object.keys(err).length) return setErrors(err);
-    onSave(formData);
+  const handleSave = async () => {
+    try {
+      const payload = {
+        ...form,
+        dob: form.dob ? form.dob.toISOString().split("T")[0] : null,
+      };
+
+      delete payload.username; // Don't update username
+      const updated = await updateUserById(user.id, payload);
+      toast.success("User updated successfully");
+      onSave({ ...form, id: user.id });
+      onClose();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.errors?.[0]?.msg ||
+        "Failed to update user";
+      toast.error(msg);
+    }
   };
 
   return (
     <div className="modal modal-open">
-      <div className="modal-box max-w-xl">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Edit User</h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="modal-box max-w-2xl">
+        <h2 className="font-bold text-xl mb-4">Edit User</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="input">
+            <span className="label">Username</span>
+            <input value={form.username} disabled className="bg-base-200" />
+          </label>
 
-        <div className="space-y-4">
-          {/* Name */}
-          <fieldset>
-            <legend className="label">Full Name</legend>
+          <label className="input">
+            <span className="label">Full Name</span>
             <input
-              type="text"
-              className="input input-bordered w-full"
-              value={formData.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Full name"
             />
-            {errors.name && <p className="text-sm text-error">{errors.name}</p>}
-          </fieldset>
+          </label>
 
-          {/* Username (read-only) */}
-          <fieldset>
-            <legend className="label">Username</legend>
+          <label className="input">
+            <span className="label">Phone</span>
             <input
-              type="text"
-              className="input input-bordered w-full"
-              value={formData.username}
-              readOnly
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              placeholder="Phone"
             />
-          </fieldset>
+          </label>
 
-          {/* Phone */}
-          <fieldset>
-            <legend className="label">Phone</legend>
+          <label className="input">
+            <span className="label">Email</span>
             <input
-              type="tel"
-              className="input input-bordered w-full"
-              value={formData.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="Email"
+              type="email"
             />
-            {errors.phone && <p className="text-sm text-error">{errors.phone}</p>}
-          </fieldset>
+          </label>
 
-          {/* User Type */}
-          <fieldset>
-            <legend className="label">User Type</legend>
+          <label className="input">
+            <span className="label">Gender</span>
             <select
               className="select select-bordered w-full"
-              value={formData.user_type}
-              onChange={(e) => handleChange("user_type", e.target.value)}
+              name="gender"
+              value={form.gender || ""}
+              onChange={handleChange}
             >
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
+              <option value="">Select Gender</option>
+              {genders.map((g) => (
+                <option key={g}>{g}</option>
+              ))}
             </select>
-            {errors.user_type && <p className="text-sm text-error">{errors.user_type}</p>}
-          </fieldset>
+          </label>
 
-          {/* Optional Fields */}
-          <fieldset>
-            <legend className="label">School</legend>
-            <input
-              type="text"
+          <label className="input">
+            <span className="label">DOB</span>
+            <DatePicker
+              selected={form.dob}
+              onChange={(date) => setForm({ ...form, dob: date })}
+              dateFormat="dd-MM-yyyy"
+              placeholderText="Select DOB"
               className="input input-bordered w-full"
-              value={formData.school}
-              onChange={(e) => handleChange("school", e.target.value)}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
             />
-          </fieldset>
+          </label>
 
-          <div className="flex gap-4">
-            <fieldset className="flex-1">
-              <legend className="label">Class</legend>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                value={formData.class}
-                onChange={(e) => handleChange("class", e.target.value)}
-              />
-            </fieldset>
+          <label className="input">
+            <span className="label">User Type</span>
+            <select
+              className="select select-bordered w-full"
+              name="user_type"
+              value={form.user_type}
+              onChange={handleChange}
+            >
+              {userTypes.map((type) => (
+                <option key={type}>{type}</option>
+              ))}
+            </select>
+          </label>
 
-            <fieldset className="flex-1">
-              <legend className="label">Section</legend>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                value={formData.section}
-                onChange={(e) => handleChange("section", e.target.value)}
-              />
-            </fieldset>
-          </div>
+          <label className="input">
+            <span className="label">Verified</span>
+            <select
+              className="select select-bordered w-full"
+              name="is_verified"
+              value={form.is_verified ? "true" : "false"}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, is_verified: e.target.value === "true" }))
+              }
+            >
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
 
-          {/* Password */}
-          <fieldset>
-            <legend className="label">New Password (optional)</legend>
+          <label className="input col-span-1 md:col-span-2">
+            <span className="label">School</span>
             <input
-              type="password"
-              className="input input-bordered w-full"
-              value={formData.newPassword}
-              onChange={(e) => handleChange("newPassword", e.target.value)}
+              name="school"
+              value={form.school}
+              onChange={handleChange}
+              placeholder="School name"
+              list="school-suggestions"
             />
-          </fieldset>
+            <datalist id="school-suggestions">
+              {schoolOptions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </label>
+
+          <label className="input">
+            <span className="label">Class</span>
+            <select
+              className="select select-bordered w-full"
+              name="class"
+              value={form.class}
+              onChange={handleChange}
+            >
+              <option value="">Select</option>
+              {classes.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="input">
+            <span className="label">Section</span>
+            <select
+              className="select select-bordered w-full"
+              name="section"
+              value={form.section}
+              onChange={handleChange}
+            >
+              <option value="">Select</option>
+              {sections.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        <div className="modal-action justify-between mt-6">
-          <button className="btn btn-error btn-outline" onClick={() => onBan(user)}>
-            Ban Account
+        <div className="modal-action">
+          <button className="btn btn-outline" onClick={onClose}>
+            Cancel
           </button>
-          <div className="space-x-2">
-            <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSubmit}>Save Changes</button>
-          </div>
+          <button className="btn btn-primary" onClick={handleSave}>
+            Save Changes
+          </button>
         </div>
       </div>
     </div>

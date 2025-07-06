@@ -1,6 +1,7 @@
 import DrawerNavbar from './DrawerNavbar';
 import DrawerSidebar from './DrawerSidebar';
 
+
 function DrawerLayout({ showSidebar, children }) {
   return (
     <div className={`drawer bg-base-100 mx-auto max-w-[100rem] ${showSidebar ? 'lg:drawer-open' : ''}`}>

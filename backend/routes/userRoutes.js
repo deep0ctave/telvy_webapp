@@ -17,5 +17,6 @@ router.get('/', authenticateJWT, authorizeRoles('admin'), userController.getAllU
 router.get('/:id', authenticateJWT, authorizeRoles('admin'), userController.getUserById);
 router.put('/:id', authenticateJWT, authorizeRoles('admin'),validators.adminUserUpdateValidation,validate,userController.updateUserById);
 router.delete('/:id', authenticateJWT, authorizeRoles('admin'), userController.deleteUser);
+router.post('/',authenticateJWT,authorizeRoles('admin'),validators.adminUserCreateValidation,validate,userController.createUser);
 
 module.exports = router;

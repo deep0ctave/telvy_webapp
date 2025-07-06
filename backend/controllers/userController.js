@@ -24,7 +24,7 @@ exports.getProfile = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, username, phone, email, name, user_type, is_verified, school, class, section FROM users ORDER BY created_at DESC`
+      `SELECT id, username, phone, email, name, gender, dob, user_type, is_verified, school, class, section FROM users ORDER BY created_at DESC`
     );
     res.json({ users: result.rows });
   } catch (err) {
@@ -125,7 +125,6 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
-
 // ✅ Admin: update any user by ID
 exports.updateUserById = async (req, res) => {
   const userId = req.params.id;
@@ -139,7 +138,8 @@ exports.updateUserById = async (req, res) => {
     gender,
     school,
     class: className,
-    section
+    section,
+    username // disallowed
   } = req.body;
 
   try {
@@ -148,7 +148,12 @@ exports.updateUserById = async (req, res) => {
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Prepare update fields (admin is allowed to update everything except password directly)
+    // ❌ Disallow username update
+    if (username && username !== user.username) {
+      return res.status(400).json({ error: 'Username cannot be updated' });
+    }
+
+    // ✅ Build dynamic update fields
     const updates = [];
     const values = [];
     let idx = 1;
@@ -177,7 +182,7 @@ exports.updateUserById = async (req, res) => {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    values.push(userId); // last value is the ID
+    values.push(userId); // last value = user ID
     const query = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx}`;
 
     await db.query(query, values);
@@ -185,9 +190,21 @@ exports.updateUserById = async (req, res) => {
     res.json({ message: 'User updated successfully by admin' });
   } catch (err) {
     console.error('Admin updateUserById error:', err);
-    res.status(500).json({ error: 'Server error' });
+
+    // ✅ Handle unique constraint violations
+    if (err.code === '23505') {
+      if (err.constraint === 'users_phone_key') {
+        return res.status(400).json({ error: 'Phone number already in use' });
+      }
+      if (err.constraint === 'users_username_key') {
+        return res.status(400).json({ error: 'Username already in use' });
+      }
+    }
+
+    return res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 
 // ✅ Admin: delete user
@@ -260,5 +277,37 @@ exports.verifyPasswordChange = async (req, res) => {
   } catch (err) {
     console.error('verifyPasswordChange error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.createUser = async (req, res) => {
+  try {
+    const {
+      username,
+      name,
+      phone,
+      email,
+      dob,
+      user_type,
+      school,
+      class: classInfo,
+      section,
+      password,
+    } = req.body;
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await db.query(
+      `INSERT INTO users (username, name, phone, email, dob, user_type, school, class, section, password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, username, name, phone, email, user_type, school, class, section, dob`,
+      [username, name, phone, email, dob, user_type, school, classInfo, section, hashedPassword]
+    );
+
+    res.status(201).json({ user: result.rows[0] });
+  } catch (err) {
+    console.error("createUser error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };

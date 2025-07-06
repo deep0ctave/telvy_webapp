@@ -149,6 +149,15 @@ const questionValidationRules = [
     .isArray({ min: 1 }).withMessage('Type-in must have at least one accepted answer'),
 ];
 
+const adminUserCreateValidation = [
+  body("username").notEmpty().withMessage("Username is required"),
+  body("name").notEmpty().withMessage("Name is required"),
+  body("phone").matches(/^\d{10}$/).withMessage("Enter valid 10-digit phone"),
+  body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+  body("user_type").isIn(["student", "teacher", "admin"]),
+];
+
+
 module.exports = {
   registerValidation,
   loginValidation,
@@ -159,5 +168,6 @@ module.exports = {
   profileUpdateValidation,
   adminUserUpdateValidation,
   questionValidationRules,
+  adminUserCreateValidation,
 };
 
