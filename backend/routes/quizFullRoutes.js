@@ -13,6 +13,13 @@ router.post(
 );
 
 router.get(
+  '/',
+  authenticateJWT,
+  authorizeRoles('admin', 'teacher'),
+  fullController.getAllFullQuizzes
+);
+
+router.get(
   '/:quizId',
   authenticateJWT,
   fullController.getFullQuiz

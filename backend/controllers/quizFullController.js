@@ -1,6 +1,22 @@
 // controllers/quizFullController.js
 const db = require('../db/client');
 
+
+exports.getAllFullQuizzes = async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, title, description, quiz_type, time_limit, tags, image_url, created_at
+       FROM quizzes
+       ORDER BY created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('getAllFullQuizzes error:', err);
+    res.status(500).json({ message: 'Failed to fetch quizzes' });
+  }
+};
+
+
 exports.createFullQuiz = async (req, res) => {
   const client = await db.connect();
   try {
@@ -116,6 +132,7 @@ exports.getFullQuiz = async (req, res) => {
 exports.updateFullQuiz = async (req, res) => {
   const { quizId } = req.params;
   const client = await db.connect();
+
   try {
     await client.query('BEGIN');
 
@@ -134,22 +151,46 @@ exports.updateFullQuiz = async (req, res) => {
       questions
     } = req.body;
 
+    // Validate quiz metadata
+    if (!title?.trim()) return res.status(400).json({ message: 'Quiz title is required' });
+    if (!description?.trim()) return res.status(400).json({ message: 'Quiz description is required' });
+    if (!quiz_type) return res.status(400).json({ message: 'Quiz type is required' });
+    if (!Array.isArray(tags)) return res.status(400).json({ message: 'Tags must be an array' });
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: 'At least one question is required' });
+    }
+
+    console.log(`[UPDATE QUIZ] quizId: ${quizId}, title: ${title}`);
+
+    // Update quiz metadata
     await client.query(
-      `UPDATE quizzes SET title = $1, description = $2, image_url = $3, time_limit = $4,
-       quiz_type = $5, tags = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7`,
+      `UPDATE quizzes
+       SET title = $1, description = $2, image_url = $3, time_limit = $4,
+           quiz_type = $5, tags = $6, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7`,
       [title, description, image_url, time_limit, quiz_type, tags, quizId]
     );
 
+    // Clear existing question mappings
     await client.query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
+      const index = i + 1;
+
+      if (!q.question_text?.trim()) {
+        return res.status(400).json({ message: `Question ${index} is missing text` });
+      }
+
+      if (!q.question_type || !['mcq', 'true_false', 'type_in'].includes(q.question_type)) {
+        return res.status(400).json({ message: `Question ${index} has invalid or missing type` });
+      }
 
       let questionId = q.id;
       let isNew = false;
 
+      // Insert or update question
       if (!questionId) {
-        // Insert new question
         const result = await client.query(
           `INSERT INTO questions (question_text, question_image, question_type, tags, owner_id)
            VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -158,10 +199,9 @@ exports.updateFullQuiz = async (req, res) => {
         questionId = result.rows[0].id;
         isNew = true;
       } else {
-        // Check if question exists
         const exists = await client.query('SELECT id FROM questions WHERE id = $1', [questionId]);
+
         if (!exists.rowCount) {
-          // Fallback: Insert if not found
           const result = await client.query(
             `INSERT INTO questions (question_text, question_image, question_type, tags, owner_id)
              VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -170,55 +210,96 @@ exports.updateFullQuiz = async (req, res) => {
           questionId = result.rows[0].id;
           isNew = true;
         } else {
-          // Update existing question
           await client.query(
-            `UPDATE questions SET question_text = $1, question_image = $2, question_type = $3, tags = $4,
-             updated_at = CURRENT_TIMESTAMP WHERE id = $5`,
+            `UPDATE questions
+             SET question_text = $1, question_image = $2, question_type = $3, tags = $4,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $5`,
             [q.question_text, q.question_image || null, q.question_type, q.tags || [], questionId]
           );
 
+          // Clear old options/answers
           await client.query('DELETE FROM options WHERE question_id = $1', [questionId]);
           await client.query('DELETE FROM accepted_answers WHERE question_id = $1', [questionId]);
         }
       }
 
-      // Link question to quiz
+      // Link to quiz
       await client.query(
         `INSERT INTO quiz_questions (quiz_id, question_id, question_order)
          VALUES ($1, $2, $3)`,
         [quizId, questionId, i]
       );
 
-      // Insert options or accepted answers
-      if (q.question_type === 'mcq' || q.question_type === 'true_false') {
-        for (const opt of q.options) {
+      // Handle options or answers
+      if (['mcq', 'true_false'].includes(q.question_type)) {
+        if (!Array.isArray(q.options) || q.options.length === 0) {
+          return res.status(400).json({ message: `Question ${index} must have options` });
+        }
+
+        let hasCorrect = false;
+
+        for (const [j, opt] of q.options.entries()) {
+          const text = (opt.option_text || "").trim();
+          if (!text) {
+            return res.status(400).json({ message: `Option ${j + 1} of question ${index} is empty` });
+          }
+
+          if (opt.is_correct) hasCorrect = true;
+
           await client.query(
             `INSERT INTO options (question_id, option_text, is_correct)
              VALUES ($1, $2, $3)`,
-            [questionId, opt.text, opt.is_correct]
+            [questionId, text, !!opt.is_correct]
           );
         }
-      } else if (q.question_type === 'type_in') {
-        for (const ans of q.accepted_answers || []) {
+
+        if (!hasCorrect) {
+          return res.status(400).json({ message: `Question ${index} must have at least one correct option` });
+        }
+      }
+
+      if (q.question_type === 'type_in') {
+        if (!Array.isArray(q.accepted_answers) || q.accepted_answers.length === 0) {
+          return res.status(400).json({ message: `Question ${index} must have accepted answers` });
+        }
+
+        let hasAnswer = false;
+
+        for (const [j, ans] of q.accepted_answers.entries()) {
+          const answer = (ans || "").trim();
+          if (!answer) {
+            return res.status(400).json({ message: `Answer ${j + 1} of question ${index} is empty` });
+          }
+
+          hasAnswer = true;
+
           await client.query(
             `INSERT INTO accepted_answers (question_id, acceptable_answer)
              VALUES ($1, $2)`,
-            [questionId, ans]
+            [questionId, answer]
           );
+        }
+
+        if (!hasAnswer) {
+          return res.status(400).json({ message: `Question ${index} must have at least one valid answer` });
         }
       }
     }
 
     await client.query('COMMIT');
+    console.log(`[UPDATE QUIZ] Quiz ${quizId} updated successfully`);
     res.json({ message: 'Full quiz updated successfully' });
+
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('updateFullQuiz error:', err);
+    console.error('[UPDATE QUIZ ERROR]', err);
     res.status(500).json({ message: 'Failed to update quiz structure' });
   } finally {
     client.release();
   }
 };
+
 
 
 exports.deleteFullQuiz = async (req, res) => {

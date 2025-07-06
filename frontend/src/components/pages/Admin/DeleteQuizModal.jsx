@@ -1,30 +1,48 @@
-// DeleteQuizModal.jsx
-import React from "react";
-import { X, Trash2 } from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "react-toastify";
+import { deleteFullQuiz } from "../../../services/api";
 
-export default function DeleteQuizModal({ quiz, onClose, onDelete }) {
+const DeleteQuizModal = ({ quiz, onClose, onDelete }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleDelete = async () => {
+    setLoading(true);
+    try {
+      await deleteFullQuiz(quiz.id);
+      toast.success("Quiz deleted successfully");
+      onDelete(quiz.id);
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to delete quiz");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="modal modal-open">
-      <div className="modal-box w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-error">Delete Quiz</h3>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">
-            <X />
-          </button>
-        </div>
-
+      <div className="modal-box max-w-md p-6">
+        <h3 className="font-bold text-lg mb-4 text-error">Confirm Delete</h3>
         <p className="mb-4">
-          Are you sure you want to permanently delete the quiz{" "}
-          <span className="font-semibold">{quiz.title}</span>? This action cannot be undone.
+          Are you sure you want to delete the quiz <strong>{quiz.title}</strong>?
+          This action cannot be undone.
         </p>
 
         <div className="modal-action">
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-error" onClick={() => onDelete(quiz.id)}>
-            <Trash2 className="w-4 h-4 mr-1" /> Delete
+          <button className="btn" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-error"
+            onClick={handleDelete}
+            disabled={loading}
+          >
+            {loading ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default DeleteQuizModal;

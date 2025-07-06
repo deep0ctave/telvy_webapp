@@ -85,6 +85,11 @@ export const fetchSchoolSuggestions = async (query) => {
   }
 };
 
+export const getAllFullQuizzes = async () => {
+  const res = await api.get('/full-quizzes');
+  return res.data;
+};
+
 export const createFullQuiz = (payload) =>
   api.post('/full-quizzes', payload);
 
@@ -94,7 +99,7 @@ export const getFullQuiz = (quizId) =>
 export const updateFullQuiz = (quizId, payload) =>
   api.put(`/full-quizzes/${quizId}`, payload);
 
-export const deleteFullQuiz = (quizId, withQuestions = false) =>
+export const deleteFullQuiz = (quizId, withQuestions = true) =>
   api.delete(`/full-quizzes/${quizId}?deleteQuestions=${withQuestions}`);
 
 // 🔹 Create user
