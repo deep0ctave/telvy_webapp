@@ -1,9 +1,25 @@
-// backend/db/init_db.js
-
 const pool = require('./client');
+const bcrypt = require('bcryptjs');
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitForDB(retries = 5) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await pool.query('SELECT 1');
+      return;
+    } catch (err) {
+      console.log(`⏳ Waiting for DB... (${i + 1}/${retries})`);
+      await sleep(3000);
+    }
+  }
+  throw new Error("❌ DB not ready after retries.");
+}
 
 async function main() {
   try {
+    await waitForDB();
+
     console.log("🔧 Creating tables...");
 
     await pool.query(`
@@ -110,7 +126,6 @@ async function main() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-
       CREATE TABLE IF NOT EXISTS question_attempts (
         id BIGSERIAL PRIMARY KEY,
         quiz_attempt_id BIGINT NOT NULL REFERENCES quiz_attempts(id) ON DELETE CASCADE,
@@ -122,7 +137,6 @@ async function main() {
         attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (quiz_attempt_id, question_id)
       );
-
 
       CREATE TABLE IF NOT EXISTS user_sessions (
         id SERIAL PRIMARY KEY,
@@ -141,13 +155,46 @@ async function main() {
         expires_at TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-
-
     `);
 
-    console.log("✅ Tables created. ");
+    console.log("✅ Tables created.");
 
-    //Add seed data here
+    // 👤 Check if any users exist
+    const res = await pool.query('SELECT COUNT(*) FROM users');
+    const userCount = parseInt(res.rows[0].count);
+
+    if (userCount === 0) {
+      console.log("👤 No users found — inserting default admin...");
+
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+
+      await pool.query(`
+        INSERT INTO users 
+          (username, email, phone, password, name, gender, dob, school, class, section, user_type, is_verified, status, profile_image, language)
+        VALUES 
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `, [
+        'admin',                         // username
+        'admin@quizapp.com',             // email
+        '9999999999',                    // phone
+        hashedPassword,                  // password
+        'Admin User',                    // name
+        'other',                         // gender
+        '1980-01-01',                    // dob
+        'System Headquarters',           // school
+        'AdminClass',                    // class
+        'A',                             // section
+        'admin',                         // user_type
+        true,                            // is_verified
+        'active',                        // status
+        'https://api.dicebear.com/7.x/initials/svg?seed=Admin', // profile_image
+        'en'                             // language
+      ]);
+
+      console.log("✅ Default admin user created (username: admin, password: admin123)");
+    } else {
+      console.log("👥 Users already exist — skipping admin insert.");
+    }
 
     console.log("✅ Done. Database initialized and populated.");
   } catch (err) {
