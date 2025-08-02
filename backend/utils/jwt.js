@@ -8,7 +8,7 @@ exports.generateAccessToken = (user) => {
       username: user.username,
       role: user.user_type || user.role
     },
-    "this_is_a_quiz_app",
+    process.env.JWT_SECRET,
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m' }
   );
 };
@@ -20,15 +20,15 @@ exports.generateRefreshToken = (user) => {
       username: user.username,
       role: user.user_type || user.role
     },
-    "this_is_a_quiz_app2",
+    process.env.REFRESH_SECRET,
     { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
   );
 };
 
 exports.verifyAccessToken = (token) => {
-  return jwt.verify(token, "this_is_a_quiz_app");
+  return jwt.verify(token, process.env.JWT_SECRET);
 };
 
 exports.verifyRefreshToken = (token) => {
-  return jwt.verify(token, "this_is_a_quiz_app2");
+  return jwt.verify(token, process.env.REFRESH_SECRET);
 };
