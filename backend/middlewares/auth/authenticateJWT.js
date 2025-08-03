@@ -11,7 +11,7 @@ const authenticateJWT = async (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, 'jaffa');
 
     // Optionally check if user still exists
     const result = await pool.query(`SELECT id FROM users WHERE id = $1`, [decoded.id]);
