@@ -8,8 +8,8 @@ exports.generateAccessToken = (user) => {
       username: user.username,
       role: user.user_type || user.role
     },
-    "jaffa",
-    { expiresIn: '15m'}
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m' }
   );
 };
 
@@ -20,15 +20,15 @@ exports.generateRefreshToken = (user) => {
       username: user.username,
       role: user.user_type || user.role
     },
-    "jaffa2",
-    { expiresIn: '7d'}
+    process.env.REFRESH_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '7d' }
   );
 };
 
 exports.verifyAccessToken = (token) => {
-  return jwt.verify(token, "jaffa");
+  return jwt.verify(token, process.env.JWT_SECRET);
 };
 
 exports.verifyRefreshToken = (token) => {
-  return jwt.verify(token, "jaffa2");
+  return jwt.verify(token, process.env.REFRESH_SECRET);
 };

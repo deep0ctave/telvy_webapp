@@ -3,11 +3,20 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT),
+  host: "quizapp-testing-db.postgres.database.azure.com",
+  user: "demonuser",
+  password: "avinash@1234",
+  database: "postgres",
+  port: 5432,
+  ssl: true,
 });
+
+// const pool = new Pool({
+//   host: "localhost",
+//   user: "postgres",
+//   password: "avi@400",
+//   database: "telvy_db",
+//   port: 5432,
+// });
 
 module.exports = pool;
