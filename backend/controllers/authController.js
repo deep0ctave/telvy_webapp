@@ -42,14 +42,12 @@ exports.login = async (req, res) => {
       [user.id, refreshToken, expiresAt]
     );
 
-    res
-      .cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      })
-      .json({
+    res.cookie('refreshToken', refreshToken, {
+  httpOnly: true,
+  secure: true,           // must be true when SameSite is 'None'
+  sameSite: 'None',       // allows cross-site cookie use
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+}).json({
         message: 'Login successful',
         accessToken,
         user: {
